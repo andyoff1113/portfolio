@@ -17,3 +17,8 @@ A selection of past analyses and research work.
   Irregular Time Series), validated on synthetic data and applied to a
   real point-source outbreak.
 
+- **[2011 Listeria Outbreak](Listeria_2011.html)** — GMITS applied to a
+  sporadic foodborne outbreak, comparing forecast accuracy across
+  input sizes (n = 4/5/6) and testing sensitivity to right-truncated
+  (underreported) recent data.
+
