@@ -1,0 +1,19 @@
+---
+title: "Past Works"
+---
+
+A selection of past analyses and research work.
+
+- **[HFRS Incubation Period Estimation](Hantavirus.html)** — Bayesian
+  (Stan/HMC) and MLE estimation of the incubation period for hemorrhagic
+  fever with renal syndrome, using a doubly interval-censored likelihood.
+
+- **[Internship at TWCR](Internship.html)** — Data visualization work
+  from an internship at the Taiwan Cancer Registry, including a
+  county-by-cancer-site incidence ranking heatmap.
+
+- **[Bongkrekic Acid Food Poisoning (2024)](Bongkrekic_Acid_2024.html)**
+  — Early-stage outbreak forecasting with GMITS (Grey Model for
+  Irregular Time Series), validated on synthetic data and applied to a
+  real point-source outbreak.
+

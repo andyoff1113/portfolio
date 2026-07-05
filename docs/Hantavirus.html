@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Andy Chu" />
+
+<meta name="date" content="2026-07-06" />
+
+<title>HFRS Incubation Period Estimation</title>
+
+<script src="site_libs/header-attrs-2.29/header-attrs.js"></script>
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/flatly.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/jqueryui-1.13.2/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="site_style.css" type="text/css" />
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark the anchor link active (and if it's in a dropdown, also mark that active)
+  var dropdown = menuAnchor.closest('li.dropdown');
+  if (window.bootstrap) { // Bootstrap 4+
+    menuAnchor.addClass('active');
+    dropdown.find('> .dropdown-toggle').addClass('active');
+  } else { // Bootstrap 3
+    menuAnchor.parent().addClass('active');
+    dropdown.addClass('active');
+  }
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbar" data-bs-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">My Website</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="results.html">Past works</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+<div class="btn-group pull-right float-right">
+<button type="button" class="btn btn-default btn-xs btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu dropdown-menu-right" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">HFRS Incubation Period Estimation</h1>
+<h3 class="subtitle">Kulagin et al. (1962) — Laboratory Outbreak, n =
+18</h3>
+<h4 class="author">Andy Chu</h4>
+<h4 class="date">2026-07-06</h4>
+
+</div>
+
+
+<hr />
+<div id="overview" class="section level2">
+<h2>1. Overview</h2>
+<p>Incubation periods were recorded from 18 laboratory workers (Group A:
+single-visit external visitors who attended the department on 24 Oct
+1961 only) who visited the infected department <strong>exactly
+once</strong>, providing a single point-identified exposure date.</p>
+<p>Because both the exposure date and the symptom-onset date were only
+recorded to the calendar day, the true continuous incubation period is
+never observed exactly — it is <strong>doubly
+interval-censored</strong>. Each recorded integer <span
+class="math inline">\(k\)</span> represents a true incubation <span
+class="math inline">\(T \in (k - 1,\, k + 1)\)</span>. This motivates an
+interval-censored likelihood rather than treating the integer counts as
+exact point observations (used in Section 3).</p>
+<p>Source: Kulagin, Fedorova &amp; Ketiladze (1962), <em>Journal of
+Microbiology, Epidemiology and Immunology</em>, 33(10), 121–126. <a
+href="https://www.cabidigitallibrary.org/doi/full/10.5555/19632701583"
+class="uri">https://www.cabidigitallibrary.org/doi/full/10.5555/19632701583</a></p>
+<pre class="r"><code>inc &lt;- c(rep(17, 3), 19, rep(21, 2), rep(22, 8), 23, rep(25, 2), 27)
+cat(&quot;n =&quot;, length(inc), &quot;\n&quot;)</code></pre>
+<pre><code>## n = 18</code></pre>
+<pre class="r"><code>cat(&quot;Range:&quot;, min(inc), &quot;-&quot;, max(inc), &quot;days\n&quot;)</code></pre>
+<pre><code>## Range: 17 - 27 days</code></pre>
+<pre class="r"><code>cat(&quot;Mean:&quot;, round(mean(inc), 1), &quot;  Median:&quot;, median(inc), &quot;\n&quot;)</code></pre>
+<pre><code>## Mean: 21.6   Median: 22</code></pre>
+<pre class="r"><code>ggplot(data.frame(x = inc), aes(x = &quot;&quot;, y = x)) +
+  geom_boxplot(
+    fill = &quot;#009E73&quot;, alpha = 0.4, width = 0.4, outlier.shape = NA
+  ) +
+  geom_jitter(width = 0.08, alpha = 0.6, color = &quot;#009E73&quot;, size = 2) +
+  labs(
+    title    = &quot;Observed Incubation Periods (n = 18, Group A)&quot;,
+    subtitle = paste0(
+      &quot;Single-visit visitors on Oct 24; &quot;,
+      &quot;integer-day difference between exposure and onset&quot;
+    ),
+    x = NULL, y = &quot;days&quot;
+  ) +
+  theme_minimal()</code></pre>
+<p><img src="Hantavirus_files/figure-html/data-plot-1.png" width="480" /></p>
+<hr />
+</div>
+<div id="maximum-likelihood-estimation" class="section level2">
+<h2>2. Maximum Likelihood Estimation</h2>
+<div id="fitting" class="section level3">
+<h3>2.1 Fitting</h3>
+<p>Three parametric families are fitted via MLE with L-BFGS-B
+optimization. These use point observations for comparison; the
+interval-censored treatment is applied in Section 3.</p>
+<pre class="r"><code>ll_lnorm &lt;- function(params, data) {
+  mu    &lt;- params[1]
+  sigma &lt;- params[2]
+  if (sigma &lt;= 0) return(Inf)
+  -sum(dlnorm(data, meanlog = mu, sdlog = sigma, log = TRUE))
+}
+fit_lnorm &lt;- optim(
+  c(mean(log(inc)), sd(log(inc))), ll_lnorm, data = inc,
+  method = &quot;L-BFGS-B&quot;, lower = c(-Inf, 0.001), hessian = TRUE
+)
+se_lnorm &lt;- sqrt(diag(solve(fit_lnorm$hessian)))
+ci_lnorm &lt;- cbind(
+  fit_lnorm$par - 1.96 * se_lnorm,
+  fit_lnorm$par + 1.96 * se_lnorm
+)
+aic_lnorm &lt;- 2 * 2 + 2 * fit_lnorm$value
+
+ll_weib &lt;- function(params, data) {
+  shape &lt;- params[1]
+  scale &lt;- params[2]
+  if (shape &lt;= 0 || scale &lt;= 0) return(Inf)
+  -sum(dweibull(data, shape = shape, scale = scale, log = TRUE))
+}
+fit_weib &lt;- optim(
+  c(1, mean(inc)), ll_weib, data = inc,
+  method = &quot;L-BFGS-B&quot;, lower = c(0.001, 0.001), hessian = TRUE
+)
+se_weib &lt;- sqrt(diag(solve(fit_weib$hessian)))
+ci_weib &lt;- cbind(
+  fit_weib$par - 1.96 * se_weib,
+  fit_weib$par + 1.96 * se_weib
+)
+aic_weib &lt;- 2 * 2 + 2 * fit_weib$value
+
+ll_gamma &lt;- function(params, data) {
+  shape &lt;- params[1]
+  rate  &lt;- params[2]
+  if (shape &lt;= 0 || rate &lt;= 0) return(Inf)
+  -sum(dgamma(data, shape = shape, rate = rate, log = TRUE))
+}
+fit_gamma &lt;- optim(
+  c(1, 1 / mean(inc)), ll_gamma, data = inc,
+  method = &quot;L-BFGS-B&quot;, lower = c(0.001, 0.001), hessian = TRUE
+)
+se_gamma &lt;- sqrt(diag(solve(fit_gamma$hessian)))
+ci_gamma &lt;- cbind(
+  fit_gamma$par - 1.96 * se_gamma,
+  fit_gamma$par + 1.96 * se_gamma
+)
+aic_gamma &lt;- 2 * 2 + 2 * fit_gamma$value</code></pre>
+</div>
+<div id="parameter-estimates" class="section level3">
+<h3>2.2 Parameter Estimates</h3>
+<pre class="r"><code>ci1_lo &lt;- round(
+  c(ci_lnorm[1, 1], ci_weib[1, 1], ci_gamma[1, 1]), 3
+)
+ci1_hi &lt;- round(
+  c(ci_lnorm[1, 2], ci_weib[1, 2], ci_gamma[1, 2]), 3
+)
+ci2_lo &lt;- round(
+  c(ci_lnorm[2, 1], ci_weib[2, 1], ci_gamma[2, 1]), 3
+)
+ci2_hi &lt;- round(
+  c(ci_lnorm[2, 2], ci_weib[2, 2], ci_gamma[2, 2]), 3
+)
+result &lt;- data.frame(
+  Distribution = c(&quot;Lognormal&quot;, &quot;Weibull&quot;, &quot;Gamma&quot;),
+  Parameters   = c(&quot;meanlog, sdlog&quot;, &quot;shape, scale&quot;, &quot;shape, rate&quot;),
+  Param1 = round(
+    c(fit_lnorm$par[1], fit_weib$par[1], fit_gamma$par[1]), 4
+  ),
+  CI1    = paste0(&quot;[&quot;, ci1_lo, &quot;, &quot;, ci1_hi, &quot;]&quot;),
+  Param2 = round(
+    c(fit_lnorm$par[2], fit_weib$par[2], fit_gamma$par[2]), 4
+  ),
+  CI2    = paste0(&quot;[&quot;, ci2_lo, &quot;, &quot;, ci2_hi, &quot;]&quot;),
+  AIC    = round(c(aic_lnorm, aic_weib, aic_gamma), 2)
+)
+kable(result, align = &quot;llrrrrc&quot;,
+      col.names = c(
+        &quot;Distribution&quot;, &quot;Parameters&quot;,
+        &quot;Param 1&quot;, &quot;95% CI&quot;, &quot;Param 2&quot;, &quot;95% CI&quot;, &quot;AIC&quot;
+      ))</code></pre>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="17%" />
+<col width="9%" />
+<col width="20%" />
+<col width="9%" />
+<col width="19%" />
+<col width="8%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Distribution</th>
+<th align="left">Parameters</th>
+<th align="right">Param 1</th>
+<th align="right">95% CI</th>
+<th align="right">Param 2</th>
+<th align="right">95% CI</th>
+<th align="center">AIC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Lognormal</td>
+<td align="left">meanlog, sdlog</td>
+<td align="right">3.0628</td>
+<td align="right">[3.004, 3.121]</td>
+<td align="right">0.1264</td>
+<td align="right">[0.085, 0.168]</td>
+<td align="center">90.88</td>
+</tr>
+<tr class="even">
+<td align="left">Weibull</td>
+<td align="left">shape, scale</td>
+<td align="right">8.9965</td>
+<td align="right">[5.89, 12.103]</td>
+<td align="right">22.7147</td>
+<td align="right">[21.482, 23.948]</td>
+<td align="center">90.67</td>
+</tr>
+<tr class="odd">
+<td align="left">Gamma</td>
+<td align="left">shape, rate</td>
+<td align="right">64.0606</td>
+<td align="right">[22.316, 105.805]</td>
+<td align="right">2.9719</td>
+<td align="right">[1.028, 4.916]</td>
+<td align="center">90.56</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation:</strong> AICs fall within ΔAIC &lt; 2 across
+all three distributions. Lognormal is retained as the primary model. MLE
+uses point observations; the Bayesian model below uses the
+interval-censored likelihood.</p>
+<hr />
+</div>
+<div id="distribution-curves-mle" class="section level3">
+<h3>2.3 Distribution Curves (MLE)</h3>
+<pre class="r"><code>freq &lt;- seq(0, 50, length.out = 1000)
+
+df_lnorm &lt;- data.frame(
+  x        = freq,
+  density  = dlnorm(freq, fit_lnorm$par[1], fit_lnorm$par[2]),
+  ci_lower = dlnorm(freq, ci_lnorm[1, 1],   ci_lnorm[2, 1]),
+  ci_upper = dlnorm(freq, ci_lnorm[1, 2],   ci_lnorm[2, 2])
+)
+plnorm &lt;- ggplot(df_lnorm, aes(x = x)) +
+  geom_ribbon(
+    aes(ymin = ci_lower, ymax = ci_upper),
+    fill = &quot;#009E73&quot;, alpha = 0.2
+  ) +
+  geom_line(aes(y = density), color = &quot;#009E73&quot;, linewidth = 1) +
+  geom_rug(
+    data = data.frame(x = inc), aes(x = x),
+    inherit.aes = FALSE, sides = &quot;b&quot;, alpha = 0.6
+  ) +
+  labs(
+    title = paste0(&quot;Lognormal  (AIC = &quot;, round(aic_lnorm, 1), &quot;)&quot;),
+    x = &quot;days&quot;, y = &quot;density&quot;
+  ) +
+  theme_minimal()
+
+df_weib &lt;- data.frame(
+  x        = freq,
+  density  = dweibull(freq, fit_weib$par[1], fit_weib$par[2]),
+  ci_lower = dweibull(freq, ci_weib[1, 1],   ci_weib[2, 1]),
+  ci_upper = dweibull(freq, ci_weib[1, 2],   ci_weib[2, 2])
+)
+pweib &lt;- ggplot(df_weib, aes(x = x)) +
+  geom_ribbon(
+    aes(ymin = ci_lower, ymax = ci_upper),
+    fill = &quot;#56B4E9&quot;, alpha = 0.2
+  ) +
+  geom_line(aes(y = density), color = &quot;#56B4E9&quot;, linewidth = 1) +
+  geom_rug(
+    data = data.frame(x = inc), aes(x = x),
+    inherit.aes = FALSE, sides = &quot;b&quot;, alpha = 0.6
+  ) +
+  labs(
+    title = paste0(&quot;Weibull  (AIC = &quot;, round(aic_weib, 1), &quot;)&quot;),
+    x = &quot;days&quot;, y = &quot;density&quot;
+  ) +
+  theme_minimal()
+
+df_gamma &lt;- data.frame(
+  x        = freq,
+  density  = dgamma(freq, fit_gamma$par[1], fit_gamma$par[2]),
+  ci_lower = dgamma(freq, ci_gamma[1, 1],   ci_gamma[2, 1]),
+  ci_upper = dgamma(freq, ci_gamma[1, 2],   ci_gamma[2, 2])
+)
+pgamma_p &lt;- ggplot(df_gamma, aes(x = x)) +
+  geom_ribbon(
+    aes(ymin = ci_lower, ymax = ci_upper),
+    fill = &quot;#E69F00&quot;, alpha = 0.2
+  ) +
+  geom_line(aes(y = density), color = &quot;#E69F00&quot;, linewidth = 1) +
+  geom_rug(
+    data = data.frame(x = inc), aes(x = x),
+    inherit.aes = FALSE, sides = &quot;b&quot;, alpha = 0.6
+  ) +
+  labs(
+    title = paste0(&quot;Gamma  (AIC = &quot;, round(aic_gamma, 1), &quot;)&quot;),
+    x = &quot;days&quot;, y = &quot;density&quot;
+  ) +
+  theme_minimal()
+
+df_combined &lt;- data.frame(
+  x = rep(freq, 3),
+  density = c(
+    dlnorm(freq,   fit_lnorm$par[1], fit_lnorm$par[2]),
+    dweibull(freq, fit_weib$par[1],  fit_weib$par[2]),
+    dgamma(freq,   fit_gamma$par[1], fit_gamma$par[2])
+  ),
+  Distribution = rep(
+    c(&quot;Lognormal&quot;, &quot;Weibull&quot;, &quot;Gamma&quot;), each = length(freq)
+  )
+)
+pcom &lt;- ggplot(
+  df_combined, aes(x = x, y = density, color = Distribution)
+) +
+  geom_line(linewidth = 1) +
+  geom_rug(
+    data = data.frame(x = inc), aes(x = x),
+    inherit.aes = FALSE, sides = &quot;b&quot;, alpha = 0.6
+  ) +
+  scale_color_manual(values = c(&quot;#009E73&quot;, &quot;#E69F00&quot;, &quot;#56B4E9&quot;)) +
+  labs(title = &quot;Combined&quot;, x = &quot;days&quot;, y = &quot;density&quot;) +
+  theme_minimal()
+
+grid.arrange(plnorm, pweib, pgamma_p, pcom, ncol = 2)</code></pre>
+<p><img src="Hantavirus_files/figure-html/mle-plot-1.png" width="960" /></p>
+<hr />
+</div>
+<div id="q-q-plot-lognormal-mle" class="section level3">
+<h3>2.4 Q-Q Plot (Lognormal MLE)</h3>
+<pre class="r"><code>n     &lt;- length(inc)
+probs &lt;- (seq_len(n) - 0.5) / n
+qq_df &lt;- data.frame(
+  theoretical = qlnorm(probs, fit_lnorm$par[1], fit_lnorm$par[2]),
+  observed    = sort(inc)
+)
+ggplot(qq_df, aes(x = theoretical, y = observed)) +
+  geom_point(color = &quot;#009E73&quot;, alpha = 0.7, size = 2) +
+  geom_abline(slope = 1, intercept = 0, linetype = &quot;dashed&quot;) +
+  labs(
+    title = &quot;Q-Q Plot — Lognormal (MLE)&quot;,
+    x = &quot;Theoretical Quantiles&quot;, y = &quot;Observed Quantiles&quot;
+  ) +
+  theme_minimal()</code></pre>
+<p><img src="Hantavirus_files/figure-html/qq-1.png" width="480" /></p>
+<hr />
+</div>
+</div>
+<div id="bayesian-estimation-via-stan-hmcnuts" class="section level2">
+<h2>3. Bayesian Estimation via Stan (HMC/NUTS)</h2>
+<div id="model-specification" class="section level3">
+<h3>3.1 Model Specification</h3>
+<div id="distribution-assumption" class="section level4">
+<h4>Distribution Assumption</h4>
+<p><span class="math display">\[T_{i} \sim \text{LogNormal}(\mu,\,
+\sigma), \quad i = 1, \ldots, N\]</span></p>
+<p>where <span class="math inline">\(T_{i}\)</span> is the true
+continuous incubation period of individual <span
+class="math inline">\(i\)</span> (days).</p>
+</div>
+<div id="why-expμ-mean" class="section level4">
+<h4>Why exp(μ) ≠ Mean</h4>
+<p>The lognormal distribution has two distinct location summaries:</p>
+<p><span class="math display">\[\text{Median}(T) = \exp(\mu), \qquad
+\mathbb{E}[T] = \exp\!\left(\mu +
+\frac{\sigma^{2}}{2}\right)\]</span></p>
+<p>Reporting <span class="math inline">\(\mu\)</span> directly implies
+the median, not the mean. When <span class="math inline">\(\sigma &gt;
+0\)</span>, the two quantities diverge by a factor of <span
+class="math inline">\(\exp(\sigma^{2}/2)\)</span>.</p>
+</div>
+<div id="reparameterization" class="section level4">
+<h4>Reparameterization</h4>
+<p>Let <span class="math inline">\(m = \mathbb{E}[T]\)</span>
+(<code>mean_ip</code>) and <span class="math inline">\(s =
+\text{SD}(T)\)</span> (<code>sd_ip</code>). The internal lognormal
+parameters are recovered by:</p>
+<p><span class="math display">\[\mu = \log(m) -
+\frac{1}{2}\,\log\!\left(1 + \frac{s^{2}}{m^{2}}\right)\]</span></p>
+<p><span class="math display">\[\sigma = \sqrt{\,\log\!\left(1 +
+\frac{s^{2}}{m^{2}}\right)}\]</span></p>
+<p>Both <span class="math inline">\(m\)</span> and <span
+class="math inline">\(s\)</span> are in days, allowing priors and
+credible intervals to be stated directly in the clinically interpretable
+scale.</p>
+</div>
+<div id="interval-censored-likelihood" class="section level4">
+<h4>Interval-Censored Likelihood</h4>
+<p>For individual <span class="math inline">\(i\)</span> with exposure
+window <span class="math inline">\([E_{L,i},\, E_{R,i}]\)</span> and
+onset window <span class="math inline">\([O_{L,i},\, O_{R,i}]\)</span>
+(all in calendar days), the continuous exposure time <span
+class="math inline">\(E \in (E_{L,i},\; E_{R,i} + 1)\)</span> and onset
+time <span class="math inline">\(O \in (O_{L,i},\; O_{R,i} +
+1)\)</span>, giving per-observation bounds:</p>
+<p><span class="math display">\[T^{\text{lo}}_{i} = O_{L,i} - E_{R,i} -
+1, \qquad
+T^{\text{hi}}_{i} = O_{R,i} - E_{L,i} + 1\]</span></p>
+<p>The log-likelihood contribution is:</p>
+<p><span class="math display">\[\ell(\theta \mid i) = \log\!\Bigl[
+  F_{\text{LN}}\!\left(T^{\text{hi}}_{i} \mid \mu, \sigma\right)
+  - F_{\text{LN}}\!\left(T^{\text{lo}}_{i} \mid \mu, \sigma\right)
+\Bigr]\]</span></p>
+<p>Summing over all <span class="math inline">\(N\)</span>
+observations:</p>
+<p><span class="math display">\[\ell(\theta \mid \mathbf{T}) =
+\sum_{i=1}^{N} \log\!\Bigl[
+  F_{\text{LN}}\!\left(T^{\text{hi}}_{i} \mid \mu, \sigma\right)
+  - F_{\text{LN}}\!\left(T^{\text{lo}}_{i} \mid \mu, \sigma\right)
+\Bigr]\]</span></p>
+<p><strong>Group A special case</strong> (<span
+class="math inline">\(E_{L,i} = E_{R,i}\)</span>, <span
+class="math inline">\(O_{L,i} = O_{R,i}\)</span>): <span
+class="math inline">\(T^{\text{lo}}_{i} = k_{i} - 1\)</span>, <span
+class="math inline">\(T^{\text{hi}}_{i} = k_{i} + 1\)</span> — the fixed
+±1 day window used throughout this analysis. The formulation generalizes
+without changes to cases with wider exposure or onset windows, should
+such data become available.</p>
+<pre class="r"><code>stan_code &lt;- &quot;
+data {
+  int&lt;lower=0&gt; N;
+  // Per-case incubation bounds (days, real-valued).
+  // For Group A: T_lower = k - 1, T_upper = k + 1
+  // (k = integer onset - exposure day).
+  // For wider exposure windows: T_lower = O_L - E_R - 1,
+  //                             T_upper = O_R - E_L + 1.
+  vector&lt;lower=0&gt;[N] T_lower;
+  vector&lt;lower=0&gt;[N] T_upper;
+}
+parameters {
+  real&lt;lower=0&gt; mean_ip;
+  real&lt;lower=0&gt; sd_ip;
+}
+transformed parameters {
+  real mu    = log(mean_ip)
+               - 0.5 * log(1.0 + square(sd_ip / mean_ip));
+  real sigma = sqrt(log(1.0 + square(sd_ip / mean_ip)));
+}
+model {
+  // Weakly informative priors -- to be updated after literature review.
+  // mean_ip ~ Normal(21, 7): centred near expected HFRS value.
+  // sd_ip   ~ HalfNormal(5): &lt;lower=0&gt; enforces positivity.
+  mean_ip ~ normal(21, 7);
+  sd_ip   ~ normal(0, 5);
+  // Interval-censored likelihood.
+  for (i in 1:N) {
+    target += log_diff_exp(
+      lognormal_lcdf(T_upper[i] | mu, sigma),
+      lognormal_lcdf(T_lower[i] | mu, sigma)
+    );
+  }
+}
+&quot;</code></pre>
+<p><strong>Priors:</strong> <code>mean_ip ~ Normal(21, 7)</code>,
+<code>sd_ip ~ HalfNormal(5)</code> — weakly informative, centered near
+the expected HFRS incubation period pending literature review.</p>
+<p><strong>Likelihood:</strong> doubly interval-censored; each
+observation contributes <span class="math inline">\(P(T \in
+(T_{\text{lower},i},\, T_{\text{upper},i}))\)</span>. For Group A this
+is <span class="math inline">\(T_{\text{lower}} = k - 1\)</span>, <span
+class="math inline">\(T_{\text{upper}} = k + 1\)</span>. Cases with
+wider exposure windows slot in by supplying different bounds — no model
+changes required.</p>
+<p><strong>Extensibility:</strong> to include a case from Group B-1
+(exposure Oct 7–25, onset day <span class="math inline">\(O\)</span>),
+set <code>T_lower = O − 25 − 1</code>,
+<code>T_upper = O − 7 + 1</code>.</p>
+<hr />
+</div>
+</div>
+<div id="sampling" class="section level3">
+<h3>3.2 Sampling</h3>
+<pre class="r"><code># Derive per-observation bounds from integer incubation periods.
+# Group A: single calendar-day exposure and onset -&gt; bounds = k +/- 1.
+T_lower &lt;- as.numeric(inc) - 1.0
+T_upper &lt;- as.numeric(inc) + 1.0
+
+stan_data &lt;- list(
+  N       = length(inc),
+  T_lower = T_lower,
+  T_upper = T_upper
+)
+
+fit_stan &lt;- stan(
+  model_code = stan_code,
+  data       = stan_data,
+  chains     = 4,
+  iter       = 10000,
+  warmup     = 5000,
+  seed       = 42,
+  refresh    = 0
+)</code></pre>
+<p>4 chains × 5,000 post-warmup iterations = 20,000 posterior
+samples.</p>
+<hr />
+</div>
+<div id="hmc-diagnostics" class="section level3">
+<h3>3.3 HMC Diagnostics</h3>
+<pre class="r"><code>check_hmc_diagnostics(fit_stan)</code></pre>
+<pre><code>## 
+## Divergences:</code></pre>
+<pre><code>## 0 of 20000 iterations ended with a divergence.</code></pre>
+<pre><code>## 
+## Tree depth:</code></pre>
+<pre><code>## 0 of 20000 iterations saturated the maximum tree depth of 10.</code></pre>
+<pre><code>## 
+## Energy:</code></pre>
+<pre><code>## E-BFMI indicated no pathological behavior.</code></pre>
+<pre class="r"><code>stan_sum &lt;- summary(
+  fit_stan, pars = c(&quot;mean_ip&quot;, &quot;sd_ip&quot;, &quot;mu&quot;, &quot;sigma&quot;)
+)$summary
+diag_df &lt;- data.frame(
+  Parameter = c(
+    &quot;mean_ip (days)&quot;, &quot;sd_ip (days)&quot;,
+    &quot;mu (meanlog)&quot;, &quot;sigma (sdlog)&quot;
+  ),
+  Mean  = round(stan_sum[, &quot;mean&quot;], 4),
+  R_hat = round(stan_sum[, &quot;Rhat&quot;], 4),
+  ESS   = round(stan_sum[, &quot;n_eff&quot;])
+)
+kable(
+  diag_df,
+  col.names = c(&quot;Parameter&quot;, &quot;Posterior Mean&quot;, &quot;R-hat&quot;, &quot;ESS&quot;),
+  row.names = FALSE
+)</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Parameter</th>
+<th align="right">Posterior Mean</th>
+<th align="right">R-hat</th>
+<th align="right">ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">mean_ip (days)</td>
+<td align="right">21.6414</td>
+<td align="right">1.0003</td>
+<td align="right">9144</td>
+</tr>
+<tr class="even">
+<td align="left">sd_ip (days)</td>
+<td align="right">2.9455</td>
+<td align="right">1.0004</td>
+<td align="right">8878</td>
+</tr>
+<tr class="odd">
+<td align="left">mu (meanlog)</td>
+<td align="right">3.0646</td>
+<td align="right">1.0003</td>
+<td align="right">10116</td>
+</tr>
+<tr class="even">
+<td align="left">sigma (sdlog)</td>
+<td align="right">0.1353</td>
+<td align="right">1.0004</td>
+<td align="right">10319</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation:</strong></p>
+<ul>
+<li><strong>R-hat &lt; 1.01</strong> for all parameters confirms
+convergence across chains.</li>
+<li><strong>ESS</strong> — effective sample size; target &gt; 400.</li>
+<li><strong>Divergent transitions</strong> — zero is expected; any
+divergence requires investigation.</li>
+<li><strong>E-BFMI</strong> — values near 1 indicate efficient posterior
+exploration.</li>
+</ul>
+<hr />
+</div>
+<div id="trace-plots" class="section level3">
+<h3>3.4 Trace Plots</h3>
+<pre class="r"><code>chains_arr &lt;- extract(
+  fit_stan, pars = c(&quot;mean_ip&quot;, &quot;sd_ip&quot;),
+  permuted = FALSE, inc_warmup = FALSE
+)
+
+df_trace &lt;- do.call(rbind, lapply(seq_len(dim(chains_arr)[2]), function(k) {
+  data.frame(
+    iter    = seq_len(dim(chains_arr)[1]),
+    mean_ip = chains_arr[, k, &quot;mean_ip&quot;],
+    sd_ip   = chains_arr[, k, &quot;sd_ip&quot;],
+    chain   = factor(k)
+  )
+}))
+
+p_tr_mean &lt;- ggplot(
+  df_trace, aes(x = iter, y = mean_ip, color = chain)
+) +
+  geom_line(alpha = 0.6, linewidth = 0.3) +
+  labs(
+    title = &quot;Trace — mean_ip (days) [post-warmup]&quot;,
+    x = &quot;post-warmup iteration&quot;, y = &quot;mean_ip&quot;
+  ) +
+  theme_minimal() +
+  theme(legend.position = &quot;none&quot;)
+
+p_tr_sd &lt;- ggplot(
+  df_trace, aes(x = iter, y = sd_ip, color = chain)
+) +
+  geom_line(alpha = 0.6, linewidth = 0.3) +
+  labs(
+    title = &quot;Trace — sd_ip (days) [post-warmup]&quot;,
+    x = &quot;post-warmup iteration&quot;, y = &quot;sd_ip&quot;
+  ) +
+  theme_minimal() +
+  theme(legend.position = &quot;none&quot;)
+
+grid.arrange(p_tr_mean, p_tr_sd, ncol = 1)</code></pre>
+<p><img src="Hantavirus_files/figure-html/trace-1.png" width="960" /></p>
+<hr />
+</div>
+<div id="posterior-distributions" class="section level3">
+<h3>3.5 Posterior Distributions</h3>
+<pre class="r"><code>post_stan &lt;- as.data.frame(
+  extract(fit_stan, pars = c(&quot;mean_ip&quot;, &quot;sd_ip&quot;, &quot;mu&quot;, &quot;sigma&quot;))
+)
+
+mle_mean &lt;- exp(fit_lnorm$par[1] + fit_lnorm$par[2]^2 / 2)
+mle_sd &lt;- sqrt(
+  (exp(fit_lnorm$par[2]^2) - 1) *
+    exp(2 * fit_lnorm$par[1] + fit_lnorm$par[2]^2)
+)
+
+p_post_mean &lt;- ggplot(post_stan, aes(x = mean_ip)) +
+  geom_density(fill = &quot;#009E73&quot;, alpha = 0.5) +
+  geom_vline(
+    xintercept = mle_mean, linetype = &quot;dashed&quot;, color = &quot;gray30&quot;
+  ) +
+  labs(
+    title    = &quot;Posterior — mean_ip (days)&quot;,
+    subtitle = &quot;Dashed: MLE-equivalent mean (point likelihood)&quot;,
+    x = &quot;mean incubation period (days)&quot;, y = &quot;density&quot;
+  ) +
+  theme_minimal()
+
+p_post_sd &lt;- ggplot(post_stan, aes(x = sd_ip)) +
+  geom_density(fill = &quot;#009E73&quot;, alpha = 0.5) +
+  geom_vline(
+    xintercept = mle_sd, linetype = &quot;dashed&quot;, color = &quot;gray30&quot;
+  ) +
+  labs(
+    title    = &quot;Posterior — sd_ip (days)&quot;,
+    subtitle = &quot;Dashed: MLE-equivalent SD (point likelihood)&quot;,
+    x = &quot;SD incubation period (days)&quot;, y = &quot;density&quot;
+  ) +
+  theme_minimal()
+
+grid.arrange(p_post_mean, p_post_sd, ncol = 2)</code></pre>
+<p><img src="Hantavirus_files/figure-html/posterior-1.png" width="960" /></p>
+<p><strong>Interpretation:</strong></p>
+<ul>
+<li><p><strong>mean_ip</strong> — posterior concentrated ~20–24 days;
+the MLE reference line confirms agreement between the prior and the
+interval-censored likelihood.</p></li>
+<li><p><strong>sd_ip</strong> — right-skewed; mode ~3 days, reflecting
+individual-level variability in incubation length.</p></li>
+</ul>
+<hr />
+</div>
+<div id="posterior-predictive-check" class="section level3">
+<h3>3.6 Posterior Predictive Check</h3>
+<pre class="r"><code>set.seed(1)
+n_samp   &lt;- 500
+samp_idx &lt;- sample(nrow(post_stan), n_samp)
+pp_mat &lt;- sapply(samp_idx, function(i) {
+  dlnorm(freq, post_stan$mu[i], post_stan$sigma[i])
+})
+
+df_pp &lt;- data.frame(
+  x     = freq,
+  mean  = rowMeans(pp_mat),
+  lower = apply(pp_mat, 1, quantile, probs = 0.025),
+  upper = apply(pp_mat, 1, quantile, probs = 0.975)
+)
+
+ggplot(df_pp, aes(x = x)) +
+  geom_ribbon(
+    aes(ymin = lower, ymax = upper), fill = &quot;#009E73&quot;, alpha = 0.25
+  ) +
+  geom_line(aes(y = mean), color = &quot;#009E73&quot;, linewidth = 1) +
+  geom_rug(
+    data = data.frame(x = inc), aes(x = x),
+    inherit.aes = FALSE, sides = &quot;b&quot;, alpha = 0.8
+  ) +
+  labs(
+    title    = &quot;Posterior Predictive — Lognormal (Stan/HMC)&quot;,
+    subtitle = paste0(
+      &quot;Mean density +/- 95% interval from &quot;, n_samp,
+      &quot; posterior samples&quot;
+    ),
+    x = &quot;days&quot;, y = &quot;density&quot;
+  ) +
+  theme_minimal()</code></pre>
+<p><img src="Hantavirus_files/figure-html/posterior-predictive-1.png" width="768" /></p>
+<hr />
+</div>
+</div>
+<div id="final-estimates" class="section level2">
+<h2>4. Final Estimates</h2>
+<pre class="r"><code>est_df &lt;- data.frame(
+  Quantity = c(
+    &quot;Mean incubation period (days)&quot;,
+    &quot;SD incubation period (days)&quot;,
+    &quot;Median incubation period (days)&quot;,
+    &quot;mu (meanlog)&quot;,
+    &quot;sigma (sdlog)&quot;
+  ),
+  Posterior_Median = round(c(
+    median(post_stan$mean_ip),
+    median(post_stan$sd_ip),
+    median(exp(post_stan$mu)),
+    median(post_stan$mu),
+    median(post_stan$sigma)
+  ), 2),
+  CI_Lower = round(c(
+    quantile(post_stan$mean_ip, 0.025),
+    quantile(post_stan$sd_ip,   0.025),
+    quantile(exp(post_stan$mu), 0.025),
+    quantile(post_stan$mu,      0.025),
+    quantile(post_stan$sigma,   0.025)
+  ), 2),
+  CI_Upper = round(c(
+    quantile(post_stan$mean_ip, 0.975),
+    quantile(post_stan$sd_ip,   0.975),
+    quantile(exp(post_stan$mu), 0.975),
+    quantile(post_stan$mu,      0.975),
+    quantile(post_stan$sigma,   0.975)
+  ), 2)
+)
+kable(
+  est_df,
+  col.names = c(
+    &quot;Quantity&quot;, &quot;Posterior Median&quot;, &quot;95% CrI Lower&quot;, &quot;95% CrI Upper&quot;
+  ),
+  row.names = FALSE
+)</code></pre>
+<table>
+<colgroup>
+<col width="41%" />
+<col width="22%" />
+<col width="18%" />
+<col width="18%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Quantity</th>
+<th align="right">Posterior Median</th>
+<th align="right">95% CrI Lower</th>
+<th align="right">95% CrI Upper</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Mean incubation period (days)</td>
+<td align="right">21.61</td>
+<td align="right">20.30</td>
+<td align="right">23.14</td>
+</tr>
+<tr class="even">
+<td align="left">SD incubation period (days)</td>
+<td align="right">2.85</td>
+<td align="right">2.04</td>
+<td align="right">4.39</td>
+</tr>
+<tr class="odd">
+<td align="left">Median incubation period (days)</td>
+<td align="right">21.42</td>
+<td align="right">20.07</td>
+<td align="right">22.87</td>
+</tr>
+<tr class="even">
+<td align="left">mu (meanlog)</td>
+<td align="right">3.06</td>
+<td align="right">3.00</td>
+<td align="right">3.13</td>
+</tr>
+<tr class="odd">
+<td align="left">sigma (sdlog)</td>
+<td align="right">0.13</td>
+<td align="right">0.09</td>
+<td align="right">0.20</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation:</strong></p>
+<p>The posterior median and 95% credible interval give point estimates
+usable for outbreak planning. The interval-censored framework is
+directly extensible to cases with wider exposure windows (Groups B–E)
+should individual-level <span class="math inline">\([E_L, E_R]\)</span>
+and <span class="math inline">\([O_L, O_R]\)</span> data become
+available — no changes to the Stan model would be required.</p>
+<hr />
+</div>
+<div id="credits" class="section level2">
+<h2>5. Credits</h2>
+<div id="data-literature" class="section level3">
+<h3>Data &amp; Literature</h3>
+<ul>
+<li><p>Kulagin, S.V., Fedorova, N.I., &amp; Ketiladze, E.S. (1962).
+Laboratory outbreak of hemorrhagic fever with renal syndrome.
+<em>Journal of Microbiology, Epidemiology and Immunology</em>, 33(10),
+121–126.</p></li>
+<li><p>Sartwell, P.E. (1950). The distribution of incubation periods of
+infectious disease. <em>American Journal of Hygiene</em>, 51(3),
+310–318.</p></li>
+<li><p>Reich, N.G., et al. (2009). Estimating incubation period
+distributions with coarse data. <em>Statistics in Medicine</em>, 28(22),
+2769–2784. <em>(Foundational reference for the doubly interval-censored
+framework.)</em></p></li>
+</ul>
+</div>
+<div id="software" class="section level3">
+<h3>Software</h3>
+<ul>
+<li>R Core Team. R: A Language and Environment for Statistical
+Computing. R Foundation for Statistical Computing, Vienna, Austria.</li>
+<li>Stan Development Team. RStan: the R interface to Stan.</li>
+<li>Wickham, H. ggplot2: Elegant Graphics for Data Analysis.
+Springer-Verlag New York, 2016.</li>
+</ul>
+</div>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

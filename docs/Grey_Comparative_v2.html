@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Andy Chu" />
+
+<meta name="date" content="2026-07-06" />
+
+<title>GMITS — Early-Stage Outbreak Forecasting</title>
+
+<script src="site_libs/header-attrs-2.29/header-attrs.js"></script>
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/flatly.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/jqueryui-1.13.2/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/lightable-0.0.1/lightable.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="site_style.css" type="text/css" />
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark the anchor link active (and if it's in a dropdown, also mark that active)
+  var dropdown = menuAnchor.closest('li.dropdown');
+  if (window.bootstrap) { // Bootstrap 4+
+    menuAnchor.addClass('active');
+    dropdown.find('> .dropdown-toggle').addClass('active');
+  } else { // Bootstrap 3
+    menuAnchor.parent().addClass('active');
+    dropdown.addClass('active');
+  }
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbar" data-bs-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">My Website</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="results.html">Past works</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+<div class="btn-group pull-right float-right">
+<button type="button" class="btn btn-default btn-xs btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu dropdown-menu-right" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">GMITS — Early-Stage Outbreak
+Forecasting</h1>
+<h4 class="author">Andy Chu</h4>
+<h4 class="date">2026-07-06</h4>
+
+</div>
+
+
+<div id="functions" class="section level2 unnumbered">
+<h2 class="unnumbered">Functions</h2>
+<div id="mae-mape" class="section level3 unnumbered">
+<h3 class="unnumbered">mae(), mape()</h3>
+<pre class="r"><code>mae &lt;- function(actual, predicted) {
+  mean(abs(actual - predicted), na.rm = TRUE)
+}
+
+mape &lt;- function(actual, predicted) {
+  valid &lt;- actual != 0
+  mean(
+    abs((actual[valid] - predicted[valid]) / actual[valid]),
+    na.rm = TRUE
+  ) * 100
+}</code></pre>
+</div>
+<div id="gmits" class="section level3 unnumbered">
+<h3 class="unnumbered">gmits()</h3>
+<pre class="r"><code># n_ahead: out-of-sample steps using mean(delta_t) as step size.
+# Returns $x0_future (and $t_future as numeric time offsets) when n_ahead &gt; 0.
+gmits &lt;- function(count, date, n_ahead = 0) {
+  valid &lt;- !is.na(count) &amp; !is.na(date)
+  x0    &lt;- count[valid]
+  date  &lt;- date[valid]
+  if (length(x0) &lt; 2) {
+    warning(&quot;Not enough valid data points for modeling.&quot;)
+    return(NULL)
+  }
+  if (x0[1] == 0) x0[1] &lt;- 1e-3
+  n &lt;- length(x0)
+
+  delta_t    &lt;- as.numeric(
+    difftime(date[2:n], date[1:(n - 1)], units = &quot;days&quot;)
+  )
+  time_index &lt;- cumsum(c(0, delta_t))
+
+  x1 &lt;- cumsum(c(x0[1], x0[2:n] * delta_t))
+  z  &lt;- 0.5 * (x1[2:n] + x1[1:(n - 1)])
+
+  B &lt;- cbind(-z * delta_t, delta_t)
+  Y &lt;- x0[2:n]
+  W &lt;- diag(delta_t)
+  p &lt;- solve(t(B) %*% W %*% B) %*% t(B) %*% W %*% Y
+  a_hat &lt;- p[1]
+  b_hat &lt;- p[2]
+
+  x1_hat &lt;- c(
+    x1[1],
+    (x1[1] - b_hat / a_hat) *
+      exp(-a_hat * (time_index[-1] - time_index[1])) +
+      b_hat / a_hat
+  )
+  x0_hat &lt;- c(x0[1], diff(x1_hat) / delta_t)
+
+  result &lt;- list(
+    a = a_hat, b = b_hat,
+    x1_hat = x1_hat, x0_hat = x0_hat,
+    date = date, delta_t = delta_t
+  )
+
+  if (n_ahead &gt; 0) {
+    dt_mean  &lt;- mean(delta_t)
+    t_future &lt;- time_index[n] + cumsum(rep(dt_mean, n_ahead))
+    x1_fut   &lt;- (x1[1] - b_hat / a_hat) *
+      exp(-a_hat * (t_future - time_index[1])) + b_hat / a_hat
+    result$x0_future   &lt;- c(
+      (x1_fut[1] - x1_hat[n]) / dt_mean,
+      diff(x1_fut) / dt_mean
+    )
+    result$date_future &lt;- date[n] + round(dt_mean * seq_len(n_ahead))
+  }
+  result
+}</code></pre>
+</div>
+<div id="gmits_boot" class="section level3 unnumbered">
+<h3 class="unnumbered">gmits_boot()</h3>
+<pre class="r"><code># n_ahead &gt; 0: point/lower/upper each extend to n + n_ahead;
+# last n_ahead entries are the out-of-sample prediction interval.
+gmits_boot &lt;- function(count, date, n_boot = 1000, ci = 0.95, n_ahead = 0) {
+  base &lt;- gmits(count, date, n_ahead = n_ahead)
+  if (is.null(base)) return(NULL)
+
+  valid      &lt;- !is.na(count) &amp; !is.na(date)
+  x0         &lt;- count[valid]
+  dv         &lt;- date[valid]
+  n          &lt;- length(x0)
+  resid_pool &lt;- (x0 - base$x0_hat)[2:n]
+  n_out      &lt;- n + n_ahead
+
+  boot_mat &lt;- replicate(n_boot, {
+    e_boot  &lt;- sample(resid_pool, n - 1, replace = TRUE)
+    x0_boot &lt;- c(x0[1], pmax(base$x0_hat[2:n] + e_boot, 0))
+    res     &lt;- tryCatch(
+      gmits(x0_boot, dv, n_ahead = n_ahead),
+      error = function(e) NULL
+    )
+    if (is.null(res)) return(rep(NA_real_, n_out))
+    c(res$x0_hat, if (n_ahead &gt; 0) res$x0_future else NULL)
+  })
+
+  alpha &lt;- (1 - ci) / 2
+  list(
+    point = c(base$x0_hat,
+              if (n_ahead &gt; 0) base$x0_future else NULL),
+    lower = apply(boot_mat, 1, quantile, probs = alpha,     na.rm = TRUE),
+    upper = apply(boot_mat, 1, quantile, probs = 1 - alpha, na.rm = TRUE),
+    a = base$a,
+    b = base$b
+  )
+}</code></pre>
+</div>
+<div id="exp_reg" class="section level3 unnumbered">
+<h3 class="unnumbered">exp_reg()</h3>
+<pre class="r"><code># Log-linear OLS baseline: log(y) ~ t.
+# Only non-zero observations are used (consistent with gmits non-zero day approach).
+# n_ahead: step forward using mean(delta_t) of the input dates.
+exp_reg &lt;- function(count, date, n_ahead = 0) {
+  valid &lt;- !is.na(count) &amp; count &gt; 0 &amp; !is.na(date)
+  x0 &lt;- count[valid]
+  dv &lt;- date[valid]
+  t_num &lt;- as.numeric(dv - dv[1])
+  fit &lt;- lm(log(x0) ~ t_num)
+  n &lt;- length(x0)
+  dt_mean &lt;- if (n &gt; 1) mean(diff(t_num)) else 1
+
+  result &lt;- list(
+    alpha    = coef(fit)[[&quot;(Intercept)&quot;]],
+    beta     = coef(fit)[[&quot;t_num&quot;]],
+    x0_hat   = exp(fitted(fit)),
+    date     = dv
+  )
+  if (n_ahead &gt; 0) {
+    t_future &lt;- t_num[n] + cumsum(rep(dt_mean, n_ahead))
+    result$x0_future   &lt;- exp(
+      predict(fit, newdata = data.frame(t_num = t_future))
+    )
+    result$date_future &lt;- dv[n] + round(dt_mean * seq_len(n_ahead))
+  }
+  result
+}</code></pre>
+</div>
+<div id="truncation_adjust" class="section level3 unnumbered">
+<h3 class="unnumbered">truncation_adjust()</h3>
+<pre class="r"><code># Multiply the most recent n_recent observations by scale_factor
+# before passing to gmits(), simulating upward correction of right-truncated data.
+truncation_adjust &lt;- function(count, n_recent = 1, scale_factor = 1.5) {
+  adj &lt;- count
+  idx &lt;- tail(seq_along(count), n_recent)
+  adj[idx] &lt;- count[idx] * scale_factor
+  adj
+}</code></pre>
+<hr />
+</div>
+</div>
+<div id="synthetic-validation" class="section level1">
+<h1>Synthetic Validation</h1>
+<p>Validates that GMITS recovers known parameters from
+irregular-interval data with no noise. Two scenarios: growth phase (a
+&lt; 0) and decay phase (a &gt; 0).</p>
+<pre class="r"><code># Generate x0 from ODE solution with known (a, b, x0[1]) and irregular spacing
+synth_series &lt;- function(a, b, x0_1, t_pts) {
+  x1 &lt;- (x0_1 - b / a) * exp(-a * t_pts) + b / a
+  dt &lt;- diff(t_pts)
+  x0 &lt;- c(x0_1, diff(x1) / dt)
+  list(x0 = x0, dates = as.Date(&quot;2024-01-01&quot;) + t_pts)
+}
+
+t_irr    &lt;- c(0, 2, 4, 7, 10)   # irregular gaps: 2, 2, 3, 3
+n_ahead_s &lt;- 3
+
+# Growth scenario
+s1 &lt;- synth_series(a = -0.4, b = 3, x0_1 = 2, t_pts = t_irr)
+r1 &lt;- gmits(s1$x0, s1$dates, n_ahead = n_ahead_s)
+
+# Decay scenario
+s2 &lt;- synth_series(a = 0.3, b = 5, x0_1 = 8, t_pts = t_irr)
+r2 &lt;- gmits(s2$x0, s2$dates, n_ahead = n_ahead_s)
+
+# True ODE continuation for comparison in plot
+true_oos &lt;- function(a, b, x0_1, t_fit, n_ahead) {
+  dt_mean  &lt;- mean(diff(t_fit))
+  t_fut    &lt;- t_fit[length(t_fit)] + cumsum(rep(dt_mean, n_ahead))
+  t_all    &lt;- c(t_fit, t_fut)
+  x1_all   &lt;- (x0_1 - b / a) * exp(-a * t_all) + b / a
+  dt_all   &lt;- diff(t_all)
+  c(x0_1, diff(x1_all) / dt_all)
+}
+
+synth_true1 &lt;- true_oos(-0.4, 3, 2, t_irr, n_ahead_s)
+synth_true2 &lt;- true_oos( 0.3, 5, 8, t_irr, n_ahead_s)
+
+data.frame(
+  Scenario    = c(&quot;Growth (a = -0.4)&quot;, &quot;Decay (a = 0.3)&quot;),
+  a_true      = c(-0.4,  0.3),
+  b_true      = c( 3.0,  5.0),
+  a_hat       = round(c(r1$a, r2$a), 6),
+  b_hat       = round(c(r1$b, r2$b), 6),
+  MAE_in_samp = c(
+    mae(s1$x0, r1$x0_hat),
+    mae(s2$x0, r2$x0_hat)
+  )
+) |&gt;
+  kable(
+    digits  = 6,
+    caption = &quot;GMITS parameter recovery on noise-free synthetic data&quot;
+  ) |&gt;
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;))</code></pre>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+<caption>
+GMITS parameter recovery on noise-free synthetic data
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+Scenario
+</th>
+<th style="text-align:right;">
+a_true
+</th>
+<th style="text-align:right;">
+b_true
+</th>
+<th style="text-align:right;">
+a_hat
+</th>
+<th style="text-align:right;">
+b_hat
+</th>
+<th style="text-align:right;">
+MAE_in_samp
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Growth (a = -0.4)
+</td>
+<td style="text-align:right;">
+-0.4
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+-0.115988
+</td>
+<td style="text-align:right;">
+1.856287
+</td>
+<td style="text-align:right;">
+32.214943
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Decay (a = 0.3)
+</td>
+<td style="text-align:right;">
+0.3
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+0.155610
+</td>
+<td style="text-align:right;">
+2.520068
+</td>
+<td style="text-align:right;">
+0.258579
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>n_fit_s &lt;- length(t_irr)
+dt_mean_s &lt;- mean(diff(t_irr))
+t_oos   &lt;- t_irr[n_fit_s] + cumsum(rep(dt_mean_s, n_ahead_s))
+t_all_s &lt;- c(t_irr, t_oos)
+
+make_synth_df &lt;- function(scenario, true_vals, fitted_vals, future_vals,
+                          true_oos_vals) {
+  n_fit &lt;- length(true_vals)
+  data.frame(
+    t        = t_all_s,
+    True     = c(true_vals, true_oos_vals),
+    Fitted   = c(fitted_vals, future_vals),
+    Forecast = c(rep(FALSE, n_fit), rep(TRUE, n_ahead_s)),
+    Scenario = scenario
+  )
+}
+
+df_synth_plot &lt;- bind_rows(
+  make_synth_df(
+    &quot;Growth (a = -0.4)&quot;, s1$x0, r1$x0_hat,
+    r1$x0_future, tail(synth_true1, n_ahead_s)
+  ),
+  make_synth_df(
+    &quot;Decay (a = 0.3)&quot;, s2$x0, r2$x0_hat,
+    r2$x0_future, tail(synth_true2, n_ahead_s)
+  )
+) |&gt;
+  pivot_longer(c(True, Fitted), names_to = &quot;type&quot;, values_to = &quot;value&quot;)
+
+ggplot(df_synth_plot, aes(t, value, color = type, linetype = Forecast)) +
+  geom_vline(
+    xintercept = t_irr[n_fit_s] + dt_mean_s / 2,
+    linetype = &quot;dotted&quot;, color = &quot;grey60&quot;
+  ) +
+  geom_line(linewidth = 0.9) +
+  geom_point(
+    data = df_synth_plot |&gt; filter(!Forecast, type == &quot;True&quot;),
+    size = 2.5
+  ) +
+  scale_color_manual(
+    values = c(True = &quot;black&quot;, Fitted = &quot;steelblue&quot;),
+    name   = NULL
+  ) +
+  scale_linetype_manual(
+    values = c(&quot;FALSE&quot; = &quot;solid&quot;, &quot;TRUE&quot; = &quot;dashed&quot;),
+    labels = c(&quot;FALSE&quot; = &quot;in-sample&quot;, &quot;TRUE&quot; = &quot;forecast&quot;),
+    guide  = guide_legend(title = NULL)
+  ) +
+  facet_wrap(~ Scenario, scales = &quot;free_y&quot;, ncol = 2) +
+  theme_minimal() +
+  labs(
+    title    = &quot;GMITS Synthetic Validation — Parameter Recovery&quot;,
+    subtitle = &quot;Black = true ODE; Blue = GMITS fit + 3-step forecast; Dotted = forecast boundary&quot;,
+    x = &quot;Time (days from t₀)&quot;, y = &quot;Period incidence&quot;
+  )</code></pre>
+<p><img src="Grey_Comparative_v2_files/figure-html/plot-synth-validate-1.png" width="672" /></p>
+<p><strong>Observed limitation — growth phase forecast bias.</strong>
+The growth scenario (a = −0.4) shows systematic underprediction in the
+forecast steps even under noise-free conditions, while the decay
+scenario (a = 0.3) tracks the true series closely. This is not an
+implementation error; it is an inherent approximation bias in the
+GM(1,1) family.</p>
+<p>The background value <span class="math inline">\(z_{k} =
+\frac{1}{2}(x^{(1)}_{k} + x^{(1)}_{k-1})\)</span> approximates the
+interval mean of <span class="math inline">\(x^{(1)}\)</span> by the
+arithmetic mean of its endpoints. For an exponentially growing <span
+class="math inline">\(x^{(1)}\)</span> (convex curve), the arithmetic
+mean of the endpoints <em>understates</em> the true integral mean,
+causing the model to estimate a slower growth rate than the truth. The
+bias scales with <span class="math inline">\(|a| \times \Delta
+t\)</span>: faster growth or wider reporting intervals amplify it. In
+the decay scenario <span class="math inline">\(x^{(1)}\)</span> is
+concave, the bias acts in the opposite direction, and the absolute
+magnitude is smaller.</p>
+<p>This limitation is well-known in the grey system literature (Liu,
+2025; Liu &amp; Deng, 2000) and is the motivation for optimising the
+background coefficient <span class="math inline">\(\alpha\)</span>
+(replacing the fixed 0.5). That extension is outside the scope of this
+study; the bias is reported here as an explicit boundary condition for
+GMITS applicability: <strong>the method is most reliable when <span
+class="math inline">\(|a| \times \overline{\Delta t}\)</span> is
+small</strong>, i.e., moderate growth rates and short reporting
+intervals.</p>
+<hr />
+</div>
+<div id="data" class="section level1">
+<h1>Data</h1>
+<div id="bongkrek-acid-food-poisoning-2024" class="section level2">
+<h2>Bongkrek Acid Food Poisoning (2024)</h2>
+<p>Point-source food poisoning; 6 exposure dates over 3/18–3/24.
+Snapshot <code>Tracking_3_26b</code> (Mar 26) is the
+<strong>input</strong>: 4 non-zero reporting days (3/19, 3/21, 3/22,
+3/23). Snapshot <code>Tracking_4_07b</code> (Apr 7, final) is the
+<strong>ground truth</strong>.</p>
+<pre class="r"><code>df_bongkrek &lt;- data.frame(
+  Date           = as.Date(c(
+    &quot;2024/3/18&quot;, &quot;2024/3/19&quot;, &quot;2024/3/21&quot;,
+    &quot;2024/3/22&quot;, &quot;2024/3/23&quot;, &quot;2024/3/24&quot;
+  )),
+  Tracking_4_07b = c(1, 5, 6, 8, 6, 8),  # final ground truth
+  Tracking_3_26b = c(0, 2, 2, 2, 3, 0)   # early snapshot (n = 4)
+)
+
+# Extract n=4 non-zero input
+bong_input_obs  &lt;- na_if(df_bongkrek$Tracking_3_26b, 0L)
+bong_input_date &lt;- df_bongkrek$Date
+bong_gt_obs     &lt;- df_bongkrek$Tracking_4_07b
+bong_gt_date    &lt;- df_bongkrek$Date</code></pre>
+<pre class="r"><code>ggplot(df_bongkrek, aes(Date, Tracking_4_07b)) +
+  geom_col(fill = &quot;steelblue&quot;, alpha = 0.7) +
+  geom_col(
+    aes(y = na_if(Tracking_3_26b, 0L)),
+    fill = &quot;darkorange&quot;, alpha = 0.8
+  ) +
+  scale_x_date(date_labels = &quot;%m-%d&quot;, date_breaks = &quot;1 day&quot;) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title   = &quot;Bongkrek — Epicurve Comparison&quot;,
+    subtitle = &quot;Blue = final (Apr 7); Orange = early snapshot (Mar 26)&quot;,
+    x = &quot;Date&quot;, y = &quot;Cases&quot;
+  )</code></pre>
+<p><img src="Grey_Comparative_v2_files/figure-html/plot-bongkrek-epicurve-1.png" width="672" /></p>
+</div>
+<div id="listeria-outbreak" class="section level2">
+<h2>2011 Listeria Outbreak</h2>
+<p>Sporadic foodborne transmission; illness-onset series (A files).
+Snapshot <code>091211A</code> (Sep 12, 2011) is the
+<strong>input</strong>; <code>082712A</code> (Aug 27, 2012) is the
+<strong>ground truth</strong> (final report).</p>
+<pre class="r"><code>wd &lt;- &quot;d:/RA/Listeria/data mdy&quot;
+
+read_snap &lt;- function(fname) {
+  read_csv(
+    file.path(wd, fname),
+    col_types = cols(Date = col_character(), Count = col_integer())
+  ) |&gt;
+    mutate(
+      Date = as.Date(Date),
+      Snapshot = str_remove(fname, &quot;\\.csv$&quot;)
+    )
+}
+
+lst_input &lt;- read_snap(&quot;091211A.csv&quot;) |&gt; rename(Count_input = Count)
+lst_gt    &lt;- read_snap(&quot;082712A.csv&quot;) |&gt; rename(Count_gt    = Count)
+
+lst_combined &lt;- full_join(
+  lst_input |&gt; select(Date, Count_input),
+  lst_gt    |&gt; select(Date, Count_gt),
+  by = &quot;Date&quot;
+) |&gt;
+  arrange(Date)
+
+# Non-zero reporting days from input snapshot (091211A)
+lst_nonzero &lt;- lst_input |&gt;
+  filter(Count_input &gt; 0) |&gt;
+  arrange(Date)
+
+# First 6 non-zero days (n=6 primary)
+lst_n6 &lt;- lst_nonzero |&gt; slice_head(n = 6)
+# First 5 non-zero days
+lst_n5 &lt;- lst_nonzero |&gt; slice_head(n = 5)
+# First 4 non-zero days
+lst_n4 &lt;- lst_nonzero |&gt; slice_head(n = 4)</code></pre>
+<pre class="r"><code>lst_n6 |&gt;
+  mutate(delta_t = c(NA, diff(as.numeric(Date)))) |&gt;
+  kable(
+    col.names = c(&quot;Date&quot;, &quot;Count (input)&quot;, &quot;Snapshot&quot;, &quot;Δt (days)&quot;),
+    caption   = &quot;Listeria input: first 6 non-zero reporting days (091211A)&quot;
+  ) |&gt;
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;))</code></pre>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+<caption>
+Listeria input: first 6 non-zero reporting days (091211A)
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+Date
+</th>
+<th style="text-align:right;">
+Count (input)
+</th>
+<th style="text-align:left;">
+Snapshot
+</th>
+<th style="text-align:right;">
+Δt (days)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+2011-08-16
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+091211A
+</td>
+<td style="text-align:right;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2011-08-18
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+091211A
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2011-08-19
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+091211A
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2011-08-23
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+091211A
+</td>
+<td style="text-align:right;">
+4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2011-08-24
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+091211A
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2011-08-26
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+091211A
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+</div>
+</div>
+<div id="early-stage-forecasting" class="section level1">
+<h1>Early-Stage Forecasting</h1>
+<div id="bongkrek-n-4" class="section level2">
+<h2>Bongkrek (n = 4)</h2>
+<p>Four non-zero observations from the Mar 26 snapshot are used to
+generate a 4-step-ahead forecast. The first step lands on 3/24 (ground
+truth = 8 cases), the remaining three steps are genuine predictions
+beyond the input window.</p>
+<pre class="r"><code>n_ahead_b &lt;- 4
+
+res_bong &lt;- gmits_boot(
+  count  = bong_input_obs,
+  date   = bong_input_date,
+  n_boot = 1000,
+  n_ahead = n_ahead_b
+)
+res_bong_er &lt;- exp_reg(
+  count  = bong_input_obs,
+  date   = bong_input_date,
+  n_ahead = n_ahead_b
+)
+
+valid_b     &lt;- !is.na(bong_input_obs)
+dates_fit_b &lt;- bong_input_date[valid_b]
+n_fit_b     &lt;- sum(valid_b)
+dt_mean_b   &lt;- mean(diff(as.numeric(dates_fit_b)))
+
+df_bong_fc &lt;- data.frame(
+  Date     = c(dates_fit_b, dates_fit_b[n_fit_b] +
+                 round(dt_mean_b * seq_len(n_ahead_b))),
+  Point    = res_bong$point,
+  Lower    = res_bong$lower,
+  Upper    = res_bong$upper,
+  ExpReg   = c(res_bong_er$x0_hat, res_bong_er$x0_future),
+  Forecast = c(rep(FALSE, n_fit_b), rep(TRUE, n_ahead_b))
+)</code></pre>
+<pre class="r"><code>gt_b &lt;- data.frame(Date = bong_gt_date, GT = bong_gt_obs)
+
+ggplot() +
+  geom_col(
+    data = gt_b,
+    aes(Date, GT),
+    fill = &quot;grey80&quot;, alpha = 0.6
+  ) +
+  geom_ribbon(
+    data = df_bong_fc,
+    aes(Date, ymin = Lower, ymax = Upper),
+    fill = &quot;steelblue&quot;, alpha = 0.25
+  ) +
+  geom_line(
+    data = df_bong_fc,
+    aes(Date, Point, linetype = Forecast),
+    color = &quot;steelblue&quot;, linewidth = 0.9
+  ) +
+  geom_line(
+    data = df_bong_fc,
+    aes(Date, ExpReg, linetype = Forecast),
+    color = &quot;darkorange&quot;, linewidth = 0.9
+  ) +
+  geom_point(
+    data = df_bong_fc |&gt; filter(!Forecast),
+    aes(Date, Point),
+    color = &quot;steelblue&quot;, size = 2
+  ) +
+  scale_x_date(date_labels = &quot;%m-%d&quot;, date_breaks = &quot;1 day&quot;) +
+  scale_linetype_manual(
+    values = c(&quot;FALSE&quot; = &quot;solid&quot;, &quot;TRUE&quot; = &quot;dashed&quot;),
+    labels = c(&quot;FALSE&quot; = &quot;in-sample&quot;, &quot;TRUE&quot;  = &quot;forecast&quot;),
+    guide  = guide_legend(title = NULL)
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title    = &quot;Bongkrek — GMITS 4-Step Forecast (n = 4)&quot;,
+    subtitle = &quot;Blue = GMITS + 95% PI; Orange = exp. regression; Grey = final ground truth&quot;,
+    x = &quot;Date&quot;, y = &quot;Cases&quot;
+  )</code></pre>
+<p><img src="Grey_Comparative_v2_files/figure-html/plot-bongkrek-forecast-1.png" width="672" /></p>
+</div>
+<div id="listeria-n-4-5-6" class="section level2">
+<h2>Listeria (n = 4 / 5 / 6)</h2>
+<p>Three input sizes are compared. n = 6 is the primary scenario
+(maximum data available from the Sep 12 snapshot before the forecast
+window). n = 4 and n = 5 demonstrate sensitivity to input size.</p>
+<pre class="r"><code>n_ahead_l &lt;- 4
+
+run_listeria_fc &lt;- function(df_n) {
+  res_g  &lt;- gmits_boot(df_n$Count_input, df_n$Date,
+                       n_boot = 1000, n_ahead = n_ahead_l)
+  res_er &lt;- exp_reg(df_n$Count_input, df_n$Date, n_ahead = n_ahead_l)
+  n_fit  &lt;- nrow(df_n)
+  dt_mean &lt;- mean(diff(as.numeric(df_n$Date)))
+  data.frame(
+    Date     = c(df_n$Date,
+                 df_n$Date[n_fit] + round(dt_mean * seq_len(n_ahead_l))),
+    Point    = res_g$point,
+    Lower    = res_g$lower,
+    Upper    = res_g$upper,
+    ExpReg   = c(res_er$x0_hat, res_er$x0_future),
+    Forecast = c(rep(FALSE, n_fit), rep(TRUE, n_ahead_l)),
+    n_label  = paste0(&quot;n = &quot;, n_fit)
+  )
+}
+
+df_lst_fc &lt;- bind_rows(
+  run_listeria_fc(lst_n4),
+  run_listeria_fc(lst_n5),
+  run_listeria_fc(lst_n6)
+) |&gt;
+  mutate(n_label = factor(n_label, levels = c(&quot;n = 4&quot;, &quot;n = 5&quot;, &quot;n = 6&quot;)))</code></pre>
+<pre class="r"><code>gt_l &lt;- lst_combined |&gt;
+  filter(!is.na(Count_gt)) |&gt;
+  select(Date, GT = Count_gt)
+
+ggplot() +
+  geom_col(
+    data = gt_l |&gt;
+      filter(Date &gt;= as.Date(&quot;2011-08-16&quot;),
+             Date &lt;= as.Date(&quot;2011-09-10&quot;)),
+    aes(Date, GT),
+    fill = &quot;grey80&quot;, alpha = 0.6
+  ) +
+  geom_ribbon(
+    data = df_lst_fc,
+    aes(Date, ymin = Lower, ymax = Upper, fill = n_label),
+    alpha = 0.2
+  ) +
+  geom_line(
+    data = df_lst_fc,
+    aes(Date, Point, color = n_label, linetype = Forecast),
+    linewidth = 0.9
+  ) +
+  geom_line(
+    data = df_lst_fc,
+    aes(Date, ExpReg, color = n_label, linetype = Forecast),
+    linetype = &quot;dotted&quot;, linewidth = 0.7
+  ) +
+  scale_linetype_manual(
+    values = c(&quot;FALSE&quot; = &quot;solid&quot;, &quot;TRUE&quot; = &quot;dashed&quot;),
+    labels = c(&quot;FALSE&quot; = &quot;in-sample&quot;, &quot;TRUE&quot; = &quot;forecast&quot;),
+    guide  = guide_legend(title = NULL)
+  ) +
+  scale_color_brewer(palette = &quot;Dark2&quot;, name = &quot;Input size&quot;) +
+  scale_fill_brewer(palette  = &quot;Dark2&quot;, name = &quot;Input size&quot;) +
+  scale_x_date(date_labels = &quot;%m/%d&quot;, date_breaks = &quot;7 days&quot;) +
+  facet_wrap(~ n_label, ncol = 1) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title    = &quot;Listeria — GMITS 4-Step Forecast by Input Size&quot;,
+    subtitle = &quot;Solid/dashed = GMITS; Dotted = exp. regression; Grey = final ground truth (082712A)&quot;,
+    x = &quot;Date&quot;, y = &quot;Cases&quot;
+  )</code></pre>
+<p><img src="Grey_Comparative_v2_files/figure-html/plot-listeria-forecast-1.png" width="672" /></p>
+<hr />
+</div>
+</div>
+<div id="right-truncation-sensitivity" class="section level1">
+<h1>Right Truncation Sensitivity</h1>
+<p>The most recent observation in the n = 4 Listeria input (Aug 23,
+count = 1) may be underreported due to reporting delay. We scale it by
+1.5× and 2.0× and compare the resulting 4-step forecasts.</p>
+<pre class="r"><code>adj_none &lt;- lst_n4$Count_input
+adj_1_5  &lt;- truncation_adjust(lst_n4$Count_input, n_recent = 1, scale_factor = 1.5)
+adj_2_0  &lt;- truncation_adjust(lst_n4$Count_input, n_recent = 1, scale_factor = 2.0)
+
+run_trunc &lt;- function(counts, label) {
+  res    &lt;- gmits_boot(counts, lst_n4$Date, n_boot = 1000, n_ahead = n_ahead_l)
+  n_fit  &lt;- nrow(lst_n4)
+  dt_mean &lt;- mean(diff(as.numeric(lst_n4$Date)))
+  data.frame(
+    Date      = c(lst_n4$Date,
+                  lst_n4$Date[n_fit] + round(dt_mean * seq_len(n_ahead_l))),
+    Point     = res$point,
+    Lower     = res$lower,
+    Upper     = res$upper,
+    Forecast  = c(rep(FALSE, n_fit), rep(TRUE, n_ahead_l)),
+    Adjustment = label
+  )
+}
+
+df_trunc &lt;- bind_rows(
+  run_trunc(adj_none, &quot;No adjustment&quot;),
+  run_trunc(adj_1_5,  &quot;Scale ×1.5&quot;),
+  run_trunc(adj_2_0,  &quot;Scale ×2.0&quot;)
+) |&gt;
+  mutate(Adjustment = factor(
+    Adjustment,
+    levels = c(&quot;No adjustment&quot;, &quot;Scale ×1.5&quot;, &quot;Scale ×2.0&quot;)
+  ))</code></pre>
+<pre class="r"><code>ggplot() +
+  geom_col(
+    data = gt_l |&gt;
+      filter(Date &gt;= as.Date(&quot;2011-08-16&quot;),
+             Date &lt;= as.Date(&quot;2011-09-10&quot;)),
+    aes(Date, GT),
+    fill = &quot;grey80&quot;, alpha = 0.6
+  ) +
+  geom_ribbon(
+    data = df_trunc,
+    aes(Date, ymin = Lower, ymax = Upper, fill = Adjustment),
+    alpha = 0.2
+  ) +
+  geom_line(
+    data = df_trunc,
+    aes(Date, Point, color = Adjustment, linetype = Forecast),
+    linewidth = 0.9
+  ) +
+  scale_linetype_manual(
+    values = c(&quot;FALSE&quot; = &quot;solid&quot;, &quot;TRUE&quot; = &quot;dashed&quot;),
+    guide  = guide_legend(title = NULL)
+  ) +
+  scale_color_manual(
+    values = c(&quot;No adjustment&quot; = &quot;#1b9e77&quot;,
+               &quot;Scale ×1.5&quot;   = &quot;#d95f02&quot;,
+               &quot;Scale ×2.0&quot;   = &quot;#7570b3&quot;),
+    name = &quot;Truncation adj.&quot;
+  ) +
+  scale_fill_manual(
+    values = c(&quot;No adjustment&quot; = &quot;#1b9e77&quot;,
+               &quot;Scale ×1.5&quot;   = &quot;#d95f02&quot;,
+               &quot;Scale ×2.0&quot;   = &quot;#7570b3&quot;),
+    name = &quot;Truncation adj.&quot;
+  ) +
+  scale_x_date(date_labels = &quot;%m/%d&quot;, date_breaks = &quot;7 days&quot;) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title    = &quot;Listeria n = 4 — Right Truncation Sensitivity&quot;,
+    subtitle = &quot;Point + 95% PI under three adjustments; Grey = final ground truth&quot;,
+    x = &quot;Date&quot;, y = &quot;Cases&quot;
+  )</code></pre>
+<p><img src="Grey_Comparative_v2_files/figure-html/plot-truncation-1.png" width="672" /></p>
+<hr />
+</div>
+<div id="out-of-sample-error-summary" class="section level1">
+<h1>Out-of-Sample Error Summary</h1>
+<p>Ground truth for Bongkrek: <code>Tracking_4_07b</code> at the first
+forecast step (3/24). Ground truth for Listeria: <code>082712A</code> at
+all 4 forecast steps.</p>
+<pre class="r"><code># ---- Bongkrek: 1 verifiable step (3/24) ----
+bong_step1_date &lt;- as.Date(&quot;2024-03-24&quot;)
+bong_gt_step1   &lt;- bong_gt_obs[bong_gt_date == bong_step1_date]
+
+bong_fc_step1_g  &lt;- df_bong_fc |&gt;
+  filter(Forecast, Date == bong_step1_date) |&gt;
+  pull(Point)
+bong_fc_step1_er &lt;- df_bong_fc |&gt;
+  filter(Forecast, Date == bong_step1_date) |&gt;
+  pull(ExpReg)
+
+# ---- Listeria n=6: 4 verifiable steps ----
+fc_n6 &lt;- df_lst_fc |&gt;
+  filter(n_label == &quot;n = 6&quot;, Forecast)
+
+lst_gt_fc &lt;- lst_combined |&gt;
+  filter(Date %in% fc_n6$Date) |&gt;
+  select(Date, Count_gt)
+
+lst_err &lt;- fc_n6 |&gt;
+  left_join(lst_gt_fc, by = &quot;Date&quot;) |&gt;
+  filter(!is.na(Count_gt))
+
+# ---- Summary table ----
+bind_rows(
+  data.frame(
+    Dataset   = &quot;Bongkrek&quot;,
+    Model     = &quot;GMITS&quot;,
+    n_input   = 4L,
+    n_steps   = 1L,
+    MAE_oos   = abs(bong_fc_step1_g  - bong_gt_step1),
+    MAPE_oos  = abs(bong_fc_step1_g  - bong_gt_step1) /
+                  bong_gt_step1 * 100
+  ),
+  data.frame(
+    Dataset   = &quot;Bongkrek&quot;,
+    Model     = &quot;Exp. Reg.&quot;,
+    n_input   = 4L,
+    n_steps   = 1L,
+    MAE_oos   = abs(bong_fc_step1_er - bong_gt_step1),
+    MAPE_oos  = abs(bong_fc_step1_er - bong_gt_step1) /
+                  bong_gt_step1 * 100
+  ),
+  data.frame(
+    Dataset   = &quot;Listeria (n = 6)&quot;,
+    Model     = &quot;GMITS&quot;,
+    n_input   = 6L,
+    n_steps   = nrow(lst_err),
+    MAE_oos   = mae(lst_err$Count_gt, lst_err$Point),
+    MAPE_oos  = mape(lst_err$Count_gt, lst_err$Point)
+  ),
+  data.frame(
+    Dataset   = &quot;Listeria (n = 6)&quot;,
+    Model     = &quot;Exp. Reg.&quot;,
+    n_input   = 6L,
+    n_steps   = nrow(lst_err),
+    MAE_oos   = mae(lst_err$Count_gt, lst_err$ExpReg),
+    MAPE_oos  = mape(lst_err$Count_gt, lst_err$ExpReg)
+  )
+) |&gt;
+  kable(
+    digits    = 2,
+    col.names = c(&quot;Dataset&quot;, &quot;Model&quot;, &quot;n input&quot;,
+                  &quot;Steps verified&quot;, &quot;MAE (oos)&quot;, &quot;MAPE % (oos)&quot;),
+    caption   = &quot;Out-of-sample error: GMITS vs. exponential regression&quot;
+  ) |&gt;
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;)) |&gt;
+  pack_rows(&quot;Bongkrek (1 verifiable step)&quot;, 1, 2) |&gt;
+  pack_rows(&quot;Listeria 2011 (4 verifiable steps)&quot;, 3, 4)</code></pre>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+<caption>
+Out-of-sample error: GMITS vs. exponential regression
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+Dataset
+</th>
+<th style="text-align:left;">
+Model
+</th>
+<th style="text-align:right;">
+n input
+</th>
+<th style="text-align:right;">
+Steps verified
+</th>
+<th style="text-align:right;">
+MAE (oos)
+</th>
+<th style="text-align:right;">
+MAPE % (oos)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr grouplength="2">
+<td colspan="6" style="border-bottom: 1px solid;">
+<strong>Bongkrek (1 verifiable step)</strong>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;padding-left: 2em;" indentlevel="1">
+Bongkrek
+</td>
+<td style="text-align:left;">
+GMITS
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+6.50
+</td>
+<td style="text-align:right;">
+81.19
+</td>
+</tr>
+<tr>
+<td style="text-align:left;padding-left: 2em;" indentlevel="1">
+Bongkrek
+</td>
+<td style="text-align:left;">
+Exp. Reg.
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+5.16
+</td>
+<td style="text-align:right;">
+64.47
+</td>
+</tr>
+<tr grouplength="2">
+<td colspan="6" style="border-bottom: 1px solid;">
+<strong>Listeria 2011 (4 verifiable steps)</strong>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;padding-left: 2em;" indentlevel="1">
+Listeria (n = 6)
+</td>
+<td style="text-align:left;">
+GMITS
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+2.59
+</td>
+<td style="text-align:right;">
+90.25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;padding-left: 2em;" indentlevel="1">
+Listeria (n = 6)
+</td>
+<td style="text-align:left;">
+Exp. Reg.
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+1.95
+</td>
+<td style="text-align:right;">
+50.20
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

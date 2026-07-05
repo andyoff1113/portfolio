@@ -1,0 +1,9 @@
+table { border-collapse: collapse !important; margin: 0.5em 0; }
+table th, table td {
+  border: 1px solid #ced4da !important;
+  padding: 6px 14px !important;
+}
+table thead th {
+  background-color: #f1f3f5 !important;
+  font-weight: 600;
+}

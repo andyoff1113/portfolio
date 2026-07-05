@@ -1,0 +1,13 @@
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# Not for public repo (copyrighted PDFs / personal documents)
+References/
+研究計画書_v3.docx
+
+# Regenerable build artifacts (rebuilt into docs/ by render_site())
+_site/
+*_cache/
+/*_files/
