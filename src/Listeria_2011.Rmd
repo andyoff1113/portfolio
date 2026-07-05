@@ -321,6 +321,7 @@ and short reporting intervals.
 
 ## 2011 Listeria Outbreak
 
+Data extracted from https://archive.cdc.gov/www_cdc_gov/listeria/outbreaks/cantaloupes-jensen-farms/timeline.html
 Sporadic foodborne transmission; illness-onset series (A files).
 Snapshot `091211A` (Sep 12, 2011) is the **input**; `082712A` (Aug 27, 2012)
 is the **ground truth** (final report).
