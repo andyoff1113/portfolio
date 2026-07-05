@@ -390,7 +390,7 @@ purely to illustrate the visualization method.</p>
 <div id="pseudo-data-hard-coded" class="section level2">
 <h2>Pseudo Data (Hard-coded)</h2>
 <pre class="r"><code># Pseudo rank data (22 counties x 11 cancer sites, 1 = highest incidence rank)
-rank_wide &lt;- tribble(
+rank_wide &lt;- tibble::tribble(
   ~county,   ~全癌症, ~女性乳房, ~肺, ~攝護腺, ~結直腸, ~肝臟, ~口腔, ~子宮, ~甲狀腺, ~卵巢, ~胃,
   &quot;高雄市&quot;,  1,  10, 13,  7,  2,  3,  9,  6,  3, 12,  9,
   &quot;台南市&quot;,  2,   8,  1,  5,  1,  5, 13,  7,  5,  7, 15,
@@ -423,17 +423,19 @@ cancer_levels &lt;- c(&quot;全癌症&quot;, &quot;女性乳房&quot;, &quot;肺
 # column -&gt; 0). 連江縣&#39;s 子宮 (uterine) rank is NA: the female population
 # there is too small to compute a stable rank, shown as grey in the plot.
 rank_long &lt;- rank_wide |&gt;
-  pivot_longer(cols = -county, names_to = &quot;cancer&quot;, values_to = &quot;rank&quot;) |&gt;
-  mutate(cancer = factor(cancer, levels = cancer_levels)) |&gt;
-  group_by(cancer) |&gt;
-  mutate(
+  tidyr::pivot_longer(cols = -county, names_to = &quot;cancer&quot;, values_to = &quot;rank&quot;) |&gt;
+  dplyr::mutate(cancer = factor(cancer, levels = cancer_levels)) |&gt;
+  dplyr::group_by(cancer) |&gt;
+  dplyr::mutate(
     n_valid = sum(!is.na(rank)),
     percentile = 100 * (n_valid - rank) / (n_valid - 1)
   ) |&gt;
-  ungroup() |&gt;
-  mutate(
+  dplyr::ungroup() |&gt;
+  dplyr::mutate(
     county = factor(county, levels = rev(rank_wide$county)),
-    label_color = if_else(percentile &gt;= 65 | percentile &lt;= 20, &quot;white&quot;, &quot;black&quot;)
+    label_color = dplyr::if_else(
+      percentile &gt;= 65 | percentile &lt;= 20, &quot;white&quot;, &quot;black&quot;
+    )
   )</code></pre>
 </div>
 <div id="output" class="section level2">
@@ -441,28 +443,30 @@ rank_long &lt;- rank_wide |&gt;
 <p>The ranking of incidence for the top 10 cancers in Taiwan.</p>
 <p>The x-axis represents the cancer site (tumor location); the y-axis
 represents the city/county.</p>
-<pre class="r"><code>ggplot(rank_long, aes(x = cancer, y = county, fill = percentile)) +
-  geom_tile(color = &quot;white&quot;, linewidth = 0.6) +
-  geom_text(
-    aes(label = rank, color = label_color),
+<pre class="r"><code>ggplot2::ggplot(
+  rank_long, ggplot2::aes(x = cancer, y = county, fill = percentile)
+) +
+  ggplot2::geom_tile(color = &quot;white&quot;, linewidth = 0.6) +
+  ggplot2::geom_text(
+    ggplot2::aes(label = rank, color = label_color),
     size = 4, show.legend = FALSE
   ) +
-  scale_color_identity() +
-  scale_fill_distiller(
+  ggplot2::scale_color_identity() +
+  ggplot2::scale_fill_distiller(
     palette = &quot;RdYlBu&quot;, direction = -1,
     limits = c(0, 100), na.value = &quot;grey80&quot;,
     name = &quot;百分位數&quot;, breaks = c(0, 50, 100)
   ) +
-  scale_x_discrete(position = &quot;bottom&quot;) +
-  labs(
+  ggplot2::scale_x_discrete(position = &quot;bottom&quot;) +
+  ggplot2::labs(
     title = &quot;各縣市十大癌症發生率排名&quot;,
     x = &quot;發生部位&quot;, y = NULL
   ) +
-  theme_minimal(base_size = 13) +
-  theme(
-    panel.grid = element_blank(),
-    axis.text.x = element_text(angle = 60, hjust = 1),
-    plot.title = element_text(hjust = 0.5, face = &quot;bold&quot;)
+  ggplot2::theme_minimal(base_size = 13) +
+  ggplot2::theme(
+    panel.grid = ggplot2::element_blank(),
+    axis.text.x = ggplot2::element_text(angle = 60, hjust = 1),
+    plot.title = ggplot2::element_text(hjust = 0.5, face = &quot;bold&quot;)
   )</code></pre>
 <p><img src="Internship_files/figure-html/heatmap-plot-1.png" width="864" /></p>
 </div>

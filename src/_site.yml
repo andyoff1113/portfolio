@@ -1,5 +1,6 @@
 name: "my-website"
 output_dir: "../docs"
+exclude: ["archive"]
 output:
   html_document:
     toc: true
