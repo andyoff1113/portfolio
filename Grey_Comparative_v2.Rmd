@@ -6,7 +6,7 @@ date: "`r Sys.Date()`"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-knitr::opts_knit$set(root.dir = "d:/RA/Grey model")
+knitr::opts_knit$set(root.dir = "d:/Projects/RA/Grey model")
 for (pkg in c("tidyverse", "kableExtra")) {
   suppressMessages(
     library(pkg, character.only = TRUE, quietly = TRUE)
@@ -367,7 +367,7 @@ Snapshot `091211A` (Sep 12, 2011) is the **input**; `082712A` (Aug 27, 2012)
 is the **ground truth** (final report).
 
 ```{r data-listeria}
-wd <- "d:/RA/Listeria/data mdy"
+wd <- "d:/Projects/RA/Listeria/data mdy"
 
 read_snap <- function(fname) {
   read_csv(

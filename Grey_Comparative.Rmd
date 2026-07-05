@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-knitr::opts_knit$set(root.dir = "d:/RA/Grey model")
+knitr::opts_knit$set(root.dir = "d:/Projects/RA/Grey model")
 libraries <- c(
   "tidyverse", "readxl", "kableExtra", "GreyModel", "Greymodels"
 )
@@ -240,7 +240,7 @@ Multiple weekly snapshots; ongoing foodborne transmission (person-to-person spre
 Three representative snapshots are selected by cumulative case percentage of the final total (targets: ~20%, 50%, 80%).
 
 ```{r data-listeria}
-wd <- "d:/RA/Listeria/data mdy"
+wd <- "d:/Projects/RA/Listeria/data mdy"
 files <- list.files(wd, pattern = "\\.csv$", full.names = FALSE)
 
 listeria <- map_df(
