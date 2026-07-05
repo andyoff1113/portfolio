@@ -1,6 +1,5 @@
 name: "my-website"
-output_dir: "docs"
-exclude: ["References", "研究計画書_v3.docx"]
+output_dir: "../docs"
 output:
   html_document:
     toc: true

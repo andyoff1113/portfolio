@@ -15,16 +15,19 @@ analyses:
 
 ## Structure
 
-- Each page is a standalone `.Rmd` file in the project root.
-- `_site.yml` holds the shared navbar and output style (theme, code
-  folding, table CSS) applied to every page.
-- `docs/` is the built output, served by GitHub Pages
+- `src/` — the R Markdown source. Each page is a standalone `.Rmd` file,
+  plus `Grey model.Rproj`, `_site.yml` (shared navbar and output style:
+  theme, code folding, table CSS), `site_style.css`, and page assets
+  (`images/`, `bongkrek_poster.pdf`).
+- `docs/` — the built output, served by GitHub Pages
   (Settings → Pages → branch `main` → `/docs`).
 
 ## Rebuilding the site
 
-After editing any `.Rmd`, rebuild before committing so the deployed
-site stays in sync with the source:
+Open `src/Grey model.Rproj` in RStudio. After editing any `.Rmd`,
+rebuild before committing so the deployed site stays in sync with the
+source (`_site.yml`'s `output_dir: "../docs"` sends the build output to
+the top-level `docs/`):
 
 ```r
 rmarkdown::render_site()

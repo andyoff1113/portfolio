@@ -7,7 +7,8 @@
 References/
 研究計画書_v3.docx
 
-# Regenerable build artifacts (rebuilt into docs/ by render_site())
+# Regenerable knit intermediates in src/ (docs/*_files/ is the deployed
+# output and must stay tracked, so this only targets the source side)
 _site/
 *_cache/
-/*_files/
+src/*_files/
