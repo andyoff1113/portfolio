@@ -15,7 +15,8 @@ A selection of past analyses and research work.
 - **[Bongkrekic Acid Food Poisoning (2024)](Bongkrekic_Acid_2024.html)**
   — Early-stage outbreak forecasting with GMITS (Grey Model for
   Irregular Time Series), validated on synthetic data and applied to a
-  real point-source outbreak. This the main intention of researching limited data prediction.
+  real point-source outbreak. This is the main intention behind
+  researching limited-data prediction.
 
 - **[2011 Listeria Outbreak](Listeria_2011.html)** — GMITS applied to a
   sporadic foodborne outbreak, comparing forecast accuracy across
