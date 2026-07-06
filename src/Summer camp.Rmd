@@ -6,12 +6,18 @@ date: "2024-08-10"
 ---
 
 This was a group project from the Summer Bootcamp of Infectious Disease
-Modeling (Kyoto, 2024): a week-long intensive course where small groups
-built and presented a simulation exercise from scratch. Group 2 — Zhen
-Zhi Chu (Andy), Jongmin Lee, Thein Min Swe, Sachiko Ichihara, Yuri
-Amemiya, and Keita Shimizu — modeled a hypothetical new pandemic
-influenza outbreak reaching Kyoto, and compared public health
+Modeling (Kyoto, 2024): a 10-day intensive course where each group was
+assigned a different infectious disease to model and analyze, presenting
+their findings on the final day. Group 2 — Zhen Zhi Chu (Andy), Jongmin
+Lee, Thein Min Swe, Sachiko Ichihara, Yuri Amemiya, and Keita Shimizu —
+was assigned a hypothetical new pandemic influenza outbreak reaching
+Kyoto, and modeled how it would respond to different public health
 interventions.
+
+Andy's main contributions were designing the simulation scenarios and
+writing the ODE formulas. Simulations were run in Berkeley Madonna, and
+Andy was also mainly responsible for tuning the simulation software and
+producing the resulting charts.
 
 [Download the full slide deck (PDF)](Summer_camp_slides.pdf)
 
