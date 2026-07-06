@@ -2,7 +2,7 @@
 title: "2011 Listeria Outbreak"
 subtitle: "Early-Stage Outbreak Forecasting with GMITS"
 author: "Andy Chu"
-date: "`r Sys.Date()`"
+date: "`2026/05/23`"
 ---
 
 ```{r setup, include=FALSE}

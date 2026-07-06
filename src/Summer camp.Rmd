@@ -1,0 +1,97 @@
+---
+title: "Evaluating a New Pandemic Influenza Outbreak in Kyoto"
+subtitle: "A Simulation Exercise — Summer Bootcamp of Infectious Disease Modeling, Kyoto 2024"
+author: "Andy Chu (Group 2)"
+date: "2024-08-10"
+---
+
+This was a group project from the Summer Bootcamp of Infectious Disease
+Modeling (Kyoto, 2024): a week-long intensive course where small groups
+built and presented a simulation exercise from scratch. Group 2 — Zhen
+Zhi Chu (Andy), Jongmin Lee, Thein Min Swe, Sachiko Ichihara, Yuri
+Amemiya, and Keita Shimizu — modeled a hypothetical new pandemic
+influenza outbreak reaching Kyoto, and compared public health
+interventions.
+
+[Download the full slide deck (PDF)](Summer_camp_slides.pdf)
+
+## Introduction
+
+Pandemic influenza differs from seasonal influenza in a key way: with no
+pre-existing immunity in the population, historical pandemics (Spanish
+flu 1918–20, Asian flu 1957–58, Hong Kong flu 1968–69, Russian flu
+1977–79, and H1N1/09) have caused far larger and less predictable waves
+than any typical winter season. H1N1/09 itself combined swine, human, and
+avian gene segments and spread worldwide between April 2009 and August
+2010, with roughly 491,000 lab-confirmed cases and 18,000 deaths
+reported by WHO. In Japan, the first confirmed cases (high school
+students with no travel history) triggered a rapid escalation to
+nationwide school closures within days.
+
+The exercise imagined a new, unknown influenza-like illness with
+epidemiological features similar to 2009 pandemic influenza, already
+five weeks into an outbreak in Kobe and Osaka, with one infected child
+returning to Kyoto. The group's task was to evaluate outbreak
+preparedness and response options — school closure, mask-wearing, and
+vaccination — before the disease could take hold in Kyoto.
+
+## Methods
+
+The group built a deterministic, age-structured (adult / child)
+compartmental model stratified further by vaccination status, with
+ordinary differential equations governing transitions between
+susceptible, infected, recovered, and dead states. Parameters were
+grounded in Kyoto's 2009 census (adult population 2,275,000; child
+population 347,000) and literature estimates: a basic reproduction
+number R₀ = 1.482 (age-dependent next-generation matrix), a mean
+generation time of 4 days, mask-wearing impact from coverage × efficacy
+(0.5 × 0.3), and one-dose vaccine effectiveness against susceptibility,
+infectiousness, and death (α₁ = 0.6, α₂ = 0.5, α₃ = 0.18). Six scenarios
+were simulated over a one-year period: no intervention; school closure
+alone (3 weeks); mask-wearing alone (all year); and three
+mask-plus-vaccination combinations differing in mask duration and how
+early vaccination began.
+
+## Results
+
+With no intervention, the epidemic peaked around day 98 with a final
+size of about 301,000 infections (11.5% of the 2.6 million population)
+and 11 deaths. School closure alone barely changed the outcome — it
+delayed the peak by about three weeks but left the final size and death
+toll essentially unchanged, since the intervention window was too short
+relative to the epidemic's overall duration. Mask-wearing alone was far
+more effective on its own, cutting the final size to about 7.3% and
+deaths to 6, by delaying and lowering the peak throughout the year.
+
+Combining mask-wearing with vaccination performed best overall,
+especially when vaccination started earlier: starting mask-wearing from
+day 0 and vaccination from day 150 (rather than day 180) produced the
+smallest final size (6.6%) and fewest deaths (5) of all six scenarios —
+about a 43% reduction in final size and 55% reduction in deaths relative
+to doing nothing.
+
+## Discussion & Recommendations
+
+School closure is useful for containing localized clusters but is
+difficult to sustain for long periods, limiting its stand-alone impact
+across a full epidemic wave. Mask-wearing (as a public health and social
+measure) can meaningfully lower and delay the epidemic peak and ease the
+burden on hospitals, though even 100% coverage cannot push R_t below 1
+on its own. Vaccination directly removes people from the susceptible
+pool and has both direct and indirect population-level effects, but
+timing matters — earlier vaccination consistently outperformed later
+vaccination in the simulations. The group's overall recommendation was a
+three-pronged, coordinated approach: timely school closure around the
+epidemic peak, mask-wearing from day 0 sustained throughout the
+outbreak, and vaccination rolled out as early as possible — since
+combined interventions consistently outperformed any single measure
+alone.
+
+**Limitations:** the exercise modeled a hypothetical, not a real,
+pathogen; the main analysis used simplified, constant intervention
+parameters without sensitivity analysis or confidence intervals; and it
+did not model human behavior change (e.g., spontaneous self-isolation).
+An appendix extension explored a stochastic version of the model
+(Gillespie algorithm) to characterize the probability of outbreak
+extinction versus sustained epidemic spread under different importation
+and intervention-timing assumptions.

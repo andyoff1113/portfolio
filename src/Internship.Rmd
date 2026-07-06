@@ -1,7 +1,7 @@
 ---
 title: "Internship at TWCR"
 author: "Andy Chu"
-date: "2024-08"
+date: "2024-08-30"
 ---
 
 ```{r setup, include=FALSE}

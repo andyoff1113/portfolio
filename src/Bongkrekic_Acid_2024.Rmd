@@ -14,26 +14,6 @@ for (pkg in c("tidyverse", "kableExtra")) {
 }
 ```
 
-# Conference Poster
-
-This outbreak was also analyzed with a separate set of methods (Generalized
-Gamma delay distributions, binomial attack-rate and case-fatality-ratio
-models) and presented as a poster at the **35th Annual Meeting of the
-Japan Epidemiological Society**.
-
-[![Bongkrekic acid poisoning outbreak poster](images/bongkrek_poster.png)](bongkrek_poster.pdf)
-
-*Zheng KW, Chu ZZ, Akhmetzhanov AR. Real-time analysis of foodborne
-outbreaks: Bongkrekic acid poisoning in Taiwan, 2024.* Click the poster
-to view the full-resolution [PDF](bongkrek_poster.pdf).
-
-Reference: Akhmetzhanov AR, de Padua B, Wong CS, Thompson RN. First
-documented outbreak of Bongkrekic acid food poisoning in Taiwan,
-March–April 2024. In preparation.
-
-
-
-
 ## Functions {-}
 
 ### mae(), mape() {-}
