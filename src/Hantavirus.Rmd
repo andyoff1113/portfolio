@@ -1,7 +1,7 @@
 ---
 title: "HFRS Incubation Period Estimation"
 subtitle: "Kulagin et al. (1962) — Laboratory Outbreak, n = 18"
-date: "`r Sys.Date()`"
+date: "2026-05-14"
 author: "Andy Chu"
 ---
 

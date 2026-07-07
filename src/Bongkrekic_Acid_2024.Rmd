@@ -2,7 +2,7 @@
 title: "Bongkrekic Acid Food Poisoning (2024)"
 subtitle: "Early-Stage Outbreak Forecasting with GMITS"
 author: "Andy Chu"
-date: "`r Sys.Date()`"
+date: "2026-05-14"
 ---
 
 ```{r setup, include=FALSE}

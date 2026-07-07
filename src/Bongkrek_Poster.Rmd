@@ -2,7 +2,7 @@
 title: "Bongkrekic Acid Outbreak — Conference Poster"
 subtitle: "35th Annual Meeting of the Japan Epidemiological Society"
 author: "Andy Chu"
-date: "`2024-10-25`"
+date: "2024-10-25"
 ---
 
 In March 2024, Taiwan experienced its first documented Bongkrekic acid
