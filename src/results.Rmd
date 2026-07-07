@@ -4,33 +4,33 @@ title: "Past Works"
 
 A selection of past analyses and research work.
 
-- **[HFRS Incubation Period Estimation](Hantavirus.html)** — Bayesian
-  (Stan/HMC) and MLE estimation of the incubation period for hemorrhagic
-  fever with renal syndrome, using a doubly interval-censored likelihood.
+- **[2011 Listeria Outbreak](Listeria_2011.html)** *(2026-05-23)* — GMITS
+  applied to a sporadic foodborne outbreak, comparing forecast accuracy
+  across input sizes (n = 4/5/6) and testing sensitivity to
+  right-truncated (underreported) recent data.
 
-- **[Internship at TWCR](Internship.html)** — Data visualization work
-  from an internship at the Taiwan Cancer Registry, including a
-  county-by-cancer-site incidence ranking heatmap.
+- **[HFRS Incubation Period Estimation](Hantavirus.html)** *(2026-05-14)*
+  — Bayesian (Stan/HMC) and MLE estimation of the incubation period for
+  hemorrhagic fever with renal syndrome, using a doubly interval-censored
+  likelihood.
 
 - **[Bongkrekic Acid Food Poisoning (2024)](Bongkrekic_Acid_2024.html)**
-  — Early-stage outbreak forecasting with GMITS (Grey Model for
-  Irregular Time Series), validated on synthetic data and applied to a
-  real point-source outbreak. This is the main intention behind
-  researching limited-data prediction.
-
-- **[2011 Listeria Outbreak](Listeria_2011.html)** — GMITS applied to a
-  sporadic foodborne outbreak, comparing forecast accuracy across
-  input sizes (n = 4/5/6) and testing sensitivity to right-truncated
-  (underreported) recent data.
+  *(2026-05-14)* — Early-stage outbreak forecasting with GMITS (Grey
+  Model for Irregular Time Series), validated on synthetic data and
+  applied to a real point-source outbreak. This is the main intention
+  behind researching limited-data prediction.
 
 - **[Bongkrekic Acid Outbreak — Conference Poster](Bongkrek_Poster.html)**
-  — Summary of the poster presented at the 35th Annual Meeting of the
-  Japan Epidemiological Society, covering attack rates and
-  case-fatality ratio for the same 2024 outbreak.
+  *(2024-10-25)* — Summary of the poster presented at the 35th Annual
+  Meeting of the Japan Epidemiological Society, covering attack rates
+  and case-fatality ratio for the same 2024 outbreak.
+
+- **[Internship at TWCR](Internship.html)** *(2024-08-30)* — Data
+  visualization work from an internship at the Taiwan Cancer Registry,
+  including a county-by-cancer-site incidence ranking heatmap.
 
 - **[Evaluating a New Pandemic Influenza Outbreak in Kyoto](Summer-camp.html)**
-  — Group simulation exercise from the Summer Bootcamp of Infectious
-  Disease Modeling (Kyoto, 2024): an age-structured compartmental model
-  comparing school closure, masking, and vaccination for a hypothetical
-  new pandemic influenza reaching Kyoto.
-
+  *(2024-08-10)* — Group simulation exercise from the Summer Bootcamp of
+  Infectious Disease Modeling (Kyoto, 2024): an age-structured
+  compartmental model comparing school closure, masking, and
+  vaccination for a hypothetical new pandemic influenza reaching Kyoto.
