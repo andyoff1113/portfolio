@@ -4,6 +4,11 @@ title: "Past Works"
 
 A selection of past analyses and research work.
 
+- **[GMITS: Grey Model for Irregular Time Series](GMITS_Research.html)**
+  *(2026-05-23)* — Research overview of GMITS methodology, combining the
+  synthetic validation and both outbreak applications (Bongkrekic acid
+  and Listeria) into a single page.
+
 - **[2011 Listeria Outbreak](Listeria_2011.html)** *(2026-05-23)* — GMITS
   applied to a sporadic foodborne outbreak, comparing forecast accuracy
   across input sizes (n = 4/5/6) and testing sensitivity to
