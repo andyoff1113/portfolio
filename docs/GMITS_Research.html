@@ -357,7 +357,7 @@ Series</h1>
 <h3 class="subtitle">Research Overview — Early-Stage Outbreak
 Forecasting</h3>
 <h4 class="author">Andy Chu</h4>
-<h4 class="date">2026-05-23 (last updated 2026-10-13)</h4>
+<h4 class="date">2026-05-23 (last updated 2026-10-14)</h4>
 
 </div>
 
@@ -365,10 +365,12 @@ Forecasting</h3>
 <p>GMITS extends the classical grey-system GM(1,1) model to irregularly
 spaced reporting intervals, aimed at early-stage outbreak forecasting
 when only a handful of data points are available. This page collects the
-shared methodology and applies it to two real outbreaks — see <a
+shared methodology, checks it on synthetic data, and evaluates it on
+real-time snapshots of the 2022 England mpox outbreak. Earlier
+applications to two food-borne outbreaks are on the <a
 href="Bongkrekic_Acid_2024.html">Bongkrekic Acid Food Poisoning
 (2024)</a> and <a href="Listeria_2011.html">2011 Listeria Outbreak</a>
-for the standalone write-ups of each.</p>
+pages.</p>
 <div id="functions" class="section level2 unnumbered">
 <h2 class="unnumbered">Functions</h2>
 <p>All pages load the same function file,
@@ -743,122 +745,465 @@ small</strong>, i.e., moderate growth rates and short reporting
 intervals.</p>
 <hr />
 </div>
-<div id="data" class="section level1">
-<h1>Data</h1>
-<div id="bongkrek-acid-food-poisoning-2024" class="section level2">
-<h2>Bongkrek Acid Food Poisoning (2024)</h2>
-<p>Point-source food poisoning; 6 exposure dates over 3/18–3/24.
-Snapshot <code>Tracking_3_26b</code> (Mar 26) is the
-<strong>input</strong>: 4 non-zero reporting days (3/19, 3/21, 3/22,
-3/23). Snapshot <code>Tracking_4_07b</code> (Apr 7, final) is the
-<strong>ground truth</strong>.</p>
-<pre class="r"><code>df_bongkrek &lt;- data.frame(
-  Date           = as.Date(c(
-    &quot;2024/3/18&quot;, &quot;2024/3/19&quot;, &quot;2024/3/21&quot;,
-    &quot;2024/3/22&quot;, &quot;2024/3/23&quot;, &quot;2024/3/24&quot;
-  )),
-  Tracking_4_07b = c(1, 5, 6, 8, 6, 8),  # final ground truth
-  Tracking_3_26b = c(0, 2, 2, 2, 3, 0)   # early snapshot (n = 4)
+<div id="data-2022-england-mpox-outbreak" class="section level1">
+<h1>Data: 2022 England mpox outbreak</h1>
+<p>Mpox spread from person to person, so early incidence grows roughly
+exponentially and the GMITS growth coefficient can be read as a growth
+rate. (The two food-borne outbreaks analysed earlier are common-source
+events whose epicurves are shaped by exposure timing and the incubation
+period, not by transmission; they are kept as supplementary examples on
+the <a href="Bongkrekic_Acid_2024.html">Bongkrekic acid</a> and <a
+href="Listeria_2011.html">Listeria</a> pages.)</p>
+<p>The data come from the repository accompanying Overton et al. (2023),
+<em>Nowcasting the 2022 mpox outbreak in England</em>
+(arXiv:2302.09076), released under CC0. Two parts are used:</p>
+<ul>
+<li><strong>Ground truth:</strong> daily cases by specimen date after
+all backfilling.</li>
+<li><strong>Real-time snapshots:</strong> the reporting triangle as it
+stood on day <em>T</em>, i.e. only the cases that had been reported by
+then.</li>
+</ul>
+<p>Dates are anonymised in the source, so the x-axis is a day index.
+Symptom-onset snapshots start after the peak, so the specimen-date
+series is used. Daily counts drop sharply at weekends, so counts are
+summed into non-overlapping 7-day weeks ending on the snapshot day.</p>
+<pre class="r"><code>mpox_dir &lt;- &quot;data/mpox_england&quot;
+snapshots &lt;- seq(75, 100, by = 5)
+
+truth_daily &lt;- read_csv(
+  file.path(mpox_dir, &quot;full_data_specimen.csv&quot;),
+  show_col_types = FALSE
 )
 
-# Extract n=4 non-zero input
-bong_input_obs  &lt;- na_if(df_bongkrek$Tracking_3_26b, 0L)
-bong_input_date &lt;- df_bongkrek$Date
-bong_gt_obs     &lt;- df_bongkrek$Tracking_4_07b
-bong_gt_date    &lt;- df_bongkrek$Date</code></pre>
-<pre class="r"><code>ggplot(df_bongkrek, aes(Date, Tracking_4_07b)) +
-  geom_col(fill = &quot;steelblue&quot;, alpha = 0.7) +
-  geom_col(
-    aes(y = na_if(Tracking_3_26b, 0L)),
-    fill = &quot;darkorange&quot;, alpha = 0.8
-  ) +
-  scale_x_date(date_labels = &quot;%m-%d&quot;, date_breaks = &quot;1 day&quot;) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(
-    title   = &quot;Bongkrek — Epicurve Comparison&quot;,
-    subtitle = &quot;Blue = final (Apr 7); Orange = early snapshot (Mar 26)&quot;,
-    x = &quot;Date&quot;, y = &quot;Cases&quot;
-  )</code></pre>
-<p><img src="GMITS_Research_files/figure-html/plot-bongkrek-epicurve-1.png" width="672" /></p>
-</div>
-<div id="listeria-outbreak" class="section level2">
-<h2>2011 Listeria Outbreak</h2>
-<p>Sporadic foodborne transmission; illness-onset series (A files).
-Snapshot <code>091211A</code> (Sep 12, 2011) is the
-<strong>input</strong>; <code>082712A</code> (Aug 27, 2012) is the
-<strong>ground truth</strong> (final report).</p>
-<pre class="r"><code>wd &lt;- &quot;d:/Projects/RA/Listeria/data mdy&quot;
-
-read_snap &lt;- function(fname) {
+snapshot_daily &lt;- function(t_snap) {
   read_csv(
-    file.path(wd, fname),
-    col_types = cols(Date = col_character(), Count = col_integer())
+    file.path(
+      mpox_dir,
+      paste0(&quot;nowcasting_input_specimen_&quot;, t_snap, &quot;.csv&quot;)
+    ),
+    show_col_types = FALSE
   ) |&gt;
-    mutate(
-      Date = as.Date(Date),
-      Snapshot = str_remove(fname, &quot;\\.csv$&quot;)
-    )
+    group_by(origin) |&gt;
+    summarise(n = sum(value, na.rm = TRUE), .groups = &quot;drop&quot;)
 }
 
-lst_input &lt;- read_snap(&quot;091211A.csv&quot;) |&gt; rename(Count_input = Count)
-lst_gt    &lt;- read_snap(&quot;082712A.csv&quot;) |&gt; rename(Count_gt    = Count)
+week_sum &lt;- function(daily, week_ends) {
+  sapply(week_ends, function(e) {
+    sum(daily$n[daily$origin &gt; e - 7 &amp; daily$origin &lt;= e])
+  })
+}</code></pre>
+<pre class="r"><code>ggplot(truth_daily |&gt; filter(origin &lt;= 160), aes(origin, n)) +
+  annotate(
+    &quot;rect&quot;,
+    xmin = min(snapshots) - 0.5, xmax = max(snapshots) + 0.5,
+    ymin = -Inf, ymax = Inf,
+    fill = &quot;#2a78d6&quot;, alpha = 0.08
+  ) +
+  geom_col(fill = &quot;grey60&quot;, width = 0.8) +
+  geom_vline(
+    xintercept = snapshots, linetype = &quot;dotted&quot;, color = &quot;#2a78d6&quot;
+  ) +
+  theme_minimal() +
+  labs(
+    title = &quot;England mpox 2022 — daily cases by specimen date&quot;,
+    subtitle = paste0(
+      &quot;Backfilled ground truth; dotted lines = forecast origins &quot;,
+      &quot;(snapshots T = 75, 80, ..., 100)&quot;
+    ),
+    x = &quot;Day index (anonymised)&quot;, y = &quot;Cases&quot;
+  )</code></pre>
+<p><img src="GMITS_Research_files/figure-html/plot-mpox-epicurve-1.png" width="672" /></p>
+<p>How incomplete were the most recent data at each snapshot? The table
+compares the last week as reported on day <em>T</em> with its eventual
+total.</p>
+<pre class="r"><code>completeness &lt;- tibble(snapshot = snapshots) |&gt;
+  mutate(
+    reported = map_dbl(snapshot, function(t) {
+      week_sum(snapshot_daily(t), t)
+    }),
+    final = map_dbl(snapshot, function(t) week_sum(truth_daily, t)),
+    pct = 100 * reported / final
+  )
 
-lst_combined &lt;- full_join(
-  lst_input |&gt; select(Date, Count_input),
-  lst_gt    |&gt; select(Date, Count_gt),
-  by = &quot;Date&quot;
-) |&gt;
-  arrange(Date)
-
-# Non-zero reporting days from input snapshot (091211A)
-lst_nonzero &lt;- lst_input |&gt;
-  filter(Count_input &gt; 0) |&gt;
-  arrange(Date)
-
-# First 6 non-zero days (n=6 primary)
-lst_n6 &lt;- lst_nonzero |&gt; slice_head(n = 6)
-# First 5 non-zero days
-lst_n5 &lt;- lst_nonzero |&gt; slice_head(n = 5)
-# First 4 non-zero days
-lst_n4 &lt;- lst_nonzero |&gt; slice_head(n = 4)</code></pre>
-<pre class="r"><code>lst_n6 |&gt;
-  mutate(delta_t = c(NA, diff(as.numeric(Date)))) |&gt;
+completeness |&gt;
   kable(
-    col.names = c(&quot;Date&quot;, &quot;Count (input)&quot;, &quot;Snapshot&quot;, &quot;Δt (days)&quot;),
-    caption   = &quot;Listeria input: first 6 non-zero reporting days (091211A)&quot;
+    digits = 1,
+    col.names = c(
+      &quot;Snapshot T&quot;, &quot;Last week, reported by T&quot;,
+      &quot;Last week, final&quot;, &quot;Reported (%)&quot;
+    ),
+    caption = &quot;Right truncation in the most recent week&quot;
   ) |&gt;
   kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;))</code></pre>
 <table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
 <caption>
-Listeria input: first 6 non-zero reporting days (091211A)
+Right truncation in the most recent week
+</caption>
+<thead>
+<tr>
+<th style="text-align:right;">
+Snapshot T
+</th>
+<th style="text-align:right;">
+Last week, reported by T
+</th>
+<th style="text-align:right;">
+Last week, final
+</th>
+<th style="text-align:right;">
+Reported (%)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+75
+</td>
+<td style="text-align:right;">
+20
+</td>
+<td style="text-align:right;">
+77
+</td>
+<td style="text-align:right;">
+26.0
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+80
+</td>
+<td style="text-align:right;">
+21
+</td>
+<td style="text-align:right;">
+101
+</td>
+<td style="text-align:right;">
+20.8
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+85
+</td>
+<td style="text-align:right;">
+75
+</td>
+<td style="text-align:right;">
+160
+</td>
+<td style="text-align:right;">
+46.9
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+90
+</td>
+<td style="text-align:right;">
+77
+</td>
+<td style="text-align:right;">
+212
+</td>
+<td style="text-align:right;">
+36.3
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+95
+</td>
+<td style="text-align:right;">
+80
+</td>
+<td style="text-align:right;">
+258
+</td>
+<td style="text-align:right;">
+31.0
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+100
+</td>
+<td style="text-align:right;">
+71
+</td>
+<td style="text-align:right;">
+267
+</td>
+<td style="text-align:right;">
+26.6
+</td>
+</tr>
+</tbody>
+</table>
+<p>At every forecast origin only 21–47% of the most recent week had been
+reported.</p>
+<hr />
+</div>
+<div id="early-stage-forecasting" class="section level1">
+<h1>Early-Stage Forecasting</h1>
+<p>At each snapshot the last 5 weeks are used as input (n = 5 points, Δt
+= 7 days) and the next 2 weeks are forecast. Three inputs are
+compared:</p>
+<ul>
+<li><strong>Reported:</strong> counts as available on day <em>T</em>
+(right-truncated).</li>
+<li><strong>Reported, last week ×1.5:</strong> a simple truncation
+adjustment.</li>
+<li><strong>Oracle:</strong> the backfilled counts for the same weeks,
+i.e. what a perfect truncation correction would give.</li>
+</ul>
+<p>The exponential regression baseline is fitted to the reported
+input.</p>
+<pre class="r"><code>n_fit_m &lt;- 5
+n_ahead_m &lt;- 2
+
+run_snapshot &lt;- function(t_snap) {
+  fit_ends &lt;- t_snap - 7 * rev(seq_len(n_fit_m) - 1)
+  fut_ends &lt;- t_snap + 7 * seq_len(n_ahead_m)
+  fit_dates &lt;- as.Date(&quot;2022-01-01&quot;) + fit_ends
+
+  obs &lt;- week_sum(snapshot_daily(t_snap), fit_ends)
+  inputs &lt;- list(
+    &quot;GMITS (reported)&quot; = obs,
+    &quot;GMITS (reported, ×1.5)&quot; = truncation_adjust(obs, 1, 1.5),
+    &quot;GMITS (oracle)&quot; = week_sum(truth_daily, fit_ends)
+  )
+
+  fc &lt;- imap(inputs, function(x, nm) {
+    res &lt;- gmits_boot(x, fit_dates, n_boot = 1000, n_ahead = n_ahead_m)
+    tibble(
+      method = nm,
+      input = c(x, rep(NA, n_ahead_m)),
+      point = res$point,
+      lower = res$lower,
+      upper = res$upper
+    )
+  })
+
+  # exp_reg() drops zero weeks, so rebuild fitted values on the full grid
+  er &lt;- exp_reg(obs, fit_dates)
+  t_all &lt;- as.numeric(
+    as.Date(&quot;2022-01-01&quot;) + c(fit_ends, fut_ends) - er$date[1]
+  )
+  fc$exp_reg &lt;- tibble(
+    method = &quot;Exp. regression (reported)&quot;,
+    input = c(obs, rep(NA, n_ahead_m)),
+    point = exp(er$alpha + er$beta * t_all),
+    lower = NA_real_,
+    upper = NA_real_
+  )
+
+  bind_rows(fc) |&gt;
+    group_by(method) |&gt;
+    mutate(
+      step = seq_len(n()) - n_fit_m,
+      week_end = c(fit_ends, fut_ends),
+      truth = week_sum(truth_daily, c(fit_ends, fut_ends))
+    ) |&gt;
+    ungroup() |&gt;
+    mutate(snapshot = t_snap)
+}
+
+mpox_fc &lt;- map_dfr(snapshots, run_snapshot)
+
+method_cols &lt;- c(
+  &quot;GMITS (reported)&quot; = &quot;#2a78d6&quot;,
+  &quot;Exp. regression (reported)&quot; = &quot;#eb6834&quot;,
+  &quot;GMITS (oracle)&quot; = &quot;#1baf7a&quot;,
+  &quot;GMITS (reported, ×1.5)&quot; = &quot;#eda100&quot;
+)</code></pre>
+<pre class="r"><code>plot_methods &lt;- c(
+  &quot;GMITS (reported)&quot;, &quot;GMITS (oracle)&quot;, &quot;Exp. regression (reported)&quot;
+)
+plot_df &lt;- mpox_fc |&gt; filter(method %in% plot_methods)
+truth_weeks &lt;- mpox_fc |&gt; distinct(snapshot, week_end, truth, step)
+
+ggplot() +
+  geom_col(
+    data = truth_weeks,
+    aes(week_end, truth, alpha = step &gt; 0),
+    fill = &quot;grey60&quot;, width = 5
+  ) +
+  geom_point(
+    data = mpox_fc |&gt; filter(method == &quot;GMITS (reported)&quot;, step &lt;= 0),
+    aes(week_end, input),
+    shape = 4, size = 2
+  ) +
+  geom_ribbon(
+    data = plot_df |&gt; filter(step &gt;= 0, !is.na(lower)),
+    aes(week_end, ymin = lower, ymax = upper, fill = method),
+    alpha = 0.18
+  ) +
+  geom_line(
+    data = plot_df,
+    aes(week_end, point, color = method),
+    linewidth = 0.8
+  ) +
+  geom_vline(
+    data = distinct(mpox_fc, snapshot),
+    aes(xintercept = snapshot + 0.5),
+    linetype = &quot;dashed&quot;, color = &quot;grey40&quot;
+  ) +
+  facet_wrap(~ snapshot, labeller = label_both, scales = &quot;free_y&quot;) +
+  scale_color_manual(
+    values = method_cols, breaks = plot_methods,
+    aesthetics = c(&quot;color&quot;, &quot;fill&quot;), name = NULL
+  ) +
+  scale_alpha_manual(
+    values = c(&quot;FALSE&quot; = 0.45, &quot;TRUE&quot; = 0.85),
+    labels = c(&quot;FALSE&quot; = &quot;fit window (final)&quot;, &quot;TRUE&quot; = &quot;forecast (final)&quot;),
+    name = NULL
+  ) +
+  coord_cartesian(ylim = c(0, NA)) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;, legend.box = &quot;vertical&quot;) +
+  labs(
+    title = &quot;England mpox — 2-week GMITS forecasts at six snapshots&quot;,
+    subtitle = paste0(
+      &quot;× = counts as reported at the snapshot; bars = final counts
+&quot;,
+      &quot;ribbons = 95% bootstrap PI (clipped at 0)&quot;
+    ),
+    x = &quot;Week ending (day index)&quot;, y = &quot;Weekly cases&quot;
+  )</code></pre>
+<p><img src="GMITS_Research_files/figure-html/plot-mpox-forecast-1.png" width="672" /></p>
+<p>With the truncated input, the most recent week drags the fitted curve
+down and GMITS forecasts a near-flat trajectory. With the oracle input
+the same model tracks the growth closely one week ahead, but at the
+later snapshots (T = 90–100), where growth was already slowing towards
+the peak, the constant-rate extrapolation overshoots two weeks
+ahead.</p>
+<hr />
+</div>
+<div id="right-truncation" class="section level1">
+<h1>Right Truncation</h1>
+<p>The gap between the reported and oracle inputs isolates the error
+caused by right truncation. The figure shows the one-week-ahead absolute
+percentage error for every input at every snapshot.</p>
+<pre class="r"><code>ape_df &lt;- mpox_fc |&gt;
+  filter(step == 1) |&gt;
+  mutate(
+    ape = 100 * abs(point - truth) / truth,
+    method = factor(method, levels = names(method_cols))
+  )
+
+ggplot(ape_df, aes(factor(snapshot), ape, color = method)) +
+  geom_point(size = 3, position = position_dodge(width = 0.55)) +
+  scale_color_manual(values = method_cols, name = NULL) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  guides(color = guide_legend(nrow = 2)) +
+  labs(
+    title = &quot;One-week-ahead error by input&quot;,
+    subtitle = &quot;Absolute percentage error against final counts&quot;,
+    x = &quot;Snapshot T&quot;, y = &quot;APE (%)&quot;
+  )</code></pre>
+<p><img src="GMITS_Research_files/figure-html/plot-truncation-1.png" width="672" /></p>
+<p>Scaling the last week by 1.5 removes only part of the error, because
+the real shortfall was a factor of roughly 2.1–4.8. A delay-distribution
+based nowcast of the input is the natural next step.</p>
+<hr />
+</div>
+<div id="out-of-sample-error-summary" class="section level1">
+<h1>Out-of-Sample Error Summary</h1>
+<p>Errors are averaged over the six snapshots. Coverage is the share of
+snapshots whose final count fell inside the 95% bootstrap interval.</p>
+<pre class="r"><code>mpox_fc |&gt;
+  filter(step &gt; 0) |&gt;
+  mutate(
+    ape = 100 * abs(point - truth) / truth,
+    covered = truth &gt;= lower &amp; truth &lt;= upper
+  ) |&gt;
+  group_by(method, step) |&gt;
+  summarise(
+    MAE = mean(abs(point - truth)),
+    MAPE = mean(ape),
+    coverage = 100 * mean(covered),
+    width = mean(upper - lower),
+    .groups = &quot;drop&quot;
+  ) |&gt;
+  mutate(method = factor(method, levels = names(method_cols))) |&gt;
+  arrange(step, method) |&gt;
+  mutate(step = paste(step, if_else(step == 1, &quot;week&quot;, &quot;weeks&quot;))) |&gt;
+  kable(
+    digits = 1,
+    col.names = c(
+      &quot;Input / model&quot;, &quot;Horizon&quot;, &quot;MAE&quot;, &quot;MAPE (%)&quot;,
+      &quot;95% PI coverage (%)&quot;, &quot;Mean PI width&quot;
+    ),
+    caption = &quot;England mpox: out-of-sample error over 6 snapshots (n = 5)&quot;
+  ) |&gt;
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;))</code></pre>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+<caption>
+England mpox: out-of-sample error over 6 snapshots (n = 5)
 </caption>
 <thead>
 <tr>
 <th style="text-align:left;">
-Date
-</th>
-<th style="text-align:right;">
-Count (input)
+Input / model
 </th>
 <th style="text-align:left;">
-Snapshot
+Horizon
 </th>
 <th style="text-align:right;">
-Δt (days)
+MAE
+</th>
+<th style="text-align:right;">
+MAPE (%)
+</th>
+<th style="text-align:right;">
+95% PI coverage (%)
+</th>
+<th style="text-align:right;">
+Mean PI width
 </th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td style="text-align:left;">
-2011-08-16
-</td>
-<td style="text-align:right;">
-2
+GMITS (reported)
 </td>
 <td style="text-align:left;">
-091211A
+1 week
+</td>
+<td style="text-align:right;">
+131.6
+</td>
+<td style="text-align:right;">
+59.2
+</td>
+<td style="text-align:right;">
+33.3
+</td>
+<td style="text-align:right;">
+212.5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Exp. regression (reported)
+</td>
+<td style="text-align:left;">
+1 week
+</td>
+<td style="text-align:right;">
+84.8
+</td>
+<td style="text-align:right;">
+35.6
+</td>
+<td style="text-align:right;">
+NA
 </td>
 <td style="text-align:right;">
 NA
@@ -866,507 +1211,135 @@ NA
 </tr>
 <tr>
 <td style="text-align:left;">
-2011-08-18
-</td>
-<td style="text-align:right;">
-1
+GMITS (oracle)
 </td>
 <td style="text-align:left;">
-091211A
+1 week
 </td>
 <td style="text-align:right;">
-2
+44.1
+</td>
+<td style="text-align:right;">
+17.2
+</td>
+<td style="text-align:right;">
+66.7
+</td>
+<td style="text-align:right;">
+103.0
 </td>
 </tr>
 <tr>
 <td style="text-align:left;">
-2011-08-19
-</td>
-<td style="text-align:right;">
-1
+GMITS (reported, ×1.5)
 </td>
 <td style="text-align:left;">
-091211A
+1 week
 </td>
 <td style="text-align:right;">
-1
+100.9
+</td>
+<td style="text-align:right;">
+46.4
+</td>
+<td style="text-align:right;">
+33.3
+</td>
+<td style="text-align:right;">
+178.5
 </td>
 </tr>
 <tr>
 <td style="text-align:left;">
-2011-08-23
-</td>
-<td style="text-align:right;">
-1
+GMITS (reported)
 </td>
 <td style="text-align:left;">
-091211A
+2 weeks
 </td>
 <td style="text-align:right;">
-4
+150.0
+</td>
+<td style="text-align:right;">
+59.8
+</td>
+<td style="text-align:right;">
+50.0
+</td>
+<td style="text-align:right;">
+365.7
 </td>
 </tr>
 <tr>
 <td style="text-align:left;">
-2011-08-24
-</td>
-<td style="text-align:right;">
-4
+Exp. regression (reported)
 </td>
 <td style="text-align:left;">
-091211A
+2 weeks
 </td>
 <td style="text-align:right;">
-1
+87.6
+</td>
+<td style="text-align:right;">
+34.2
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
 </td>
 </tr>
 <tr>
 <td style="text-align:left;">
-2011-08-26
-</td>
-<td style="text-align:right;">
-1
+GMITS (oracle)
 </td>
 <td style="text-align:left;">
-091211A
+2 weeks
 </td>
 <td style="text-align:right;">
-2
+135.6
+</td>
+<td style="text-align:right;">
+53.7
+</td>
+<td style="text-align:right;">
+50.0
+</td>
+<td style="text-align:right;">
+226.6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+GMITS (reported, ×1.5)
+</td>
+<td style="text-align:left;">
+2 weeks
+</td>
+<td style="text-align:right;">
+105.9
+</td>
+<td style="text-align:right;">
+42.5
+</td>
+<td style="text-align:right;">
+66.7
+</td>
+<td style="text-align:right;">
+318.2
 </td>
 </tr>
 </tbody>
 </table>
-<hr />
-</div>
-</div>
-<div id="early-stage-forecasting" class="section level1">
-<h1>Early-Stage Forecasting</h1>
-<div id="bongkrek-n-4" class="section level2">
-<h2>Bongkrek (n = 4)</h2>
-<p>Four non-zero observations from the Mar 26 snapshot are used to
-generate a 4-step-ahead forecast. The first step lands on 3/24 (ground
-truth = 8 cases), the remaining three steps are genuine predictions
-beyond the input window.</p>
-<pre class="r"><code>n_ahead_b &lt;- 4
-
-res_bong &lt;- gmits_boot(
-  count  = bong_input_obs,
-  date   = bong_input_date,
-  n_boot = 1000,
-  n_ahead = n_ahead_b
-)
-res_bong_er &lt;- exp_reg(
-  count  = bong_input_obs,
-  date   = bong_input_date,
-  n_ahead = n_ahead_b
-)
-
-valid_b     &lt;- !is.na(bong_input_obs)
-dates_fit_b &lt;- bong_input_date[valid_b]
-n_fit_b     &lt;- sum(valid_b)
-dt_mean_b   &lt;- mean(diff(as.numeric(dates_fit_b)))
-
-df_bong_fc &lt;- data.frame(
-  Date     = c(dates_fit_b, dates_fit_b[n_fit_b] +
-                 round(dt_mean_b * seq_len(n_ahead_b))),
-  Point    = res_bong$point,
-  Lower    = res_bong$lower,
-  Upper    = res_bong$upper,
-  ExpReg   = c(res_bong_er$x0_hat, res_bong_er$x0_future),
-  Forecast = c(rep(FALSE, n_fit_b), rep(TRUE, n_ahead_b))
-)</code></pre>
-<pre class="r"><code>gt_b &lt;- data.frame(Date = bong_gt_date, GT = bong_gt_obs)
-
-ggplot() +
-  geom_col(
-    data = gt_b,
-    aes(Date, GT),
-    fill = &quot;grey80&quot;, alpha = 0.6
-  ) +
-  geom_ribbon(
-    data = df_bong_fc,
-    aes(Date, ymin = Lower, ymax = Upper),
-    fill = &quot;steelblue&quot;, alpha = 0.25
-  ) +
-  geom_line(
-    data = df_bong_fc,
-    aes(Date, Point, linetype = Forecast),
-    color = &quot;steelblue&quot;, linewidth = 0.9
-  ) +
-  geom_line(
-    data = df_bong_fc,
-    aes(Date, ExpReg, linetype = Forecast),
-    color = &quot;darkorange&quot;, linewidth = 0.9
-  ) +
-  geom_point(
-    data = df_bong_fc |&gt; filter(!Forecast),
-    aes(Date, Point),
-    color = &quot;steelblue&quot;, size = 2
-  ) +
-  scale_x_date(date_labels = &quot;%m-%d&quot;, date_breaks = &quot;1 day&quot;) +
-  scale_linetype_manual(
-    values = c(&quot;FALSE&quot; = &quot;solid&quot;, &quot;TRUE&quot;  = &quot;dashed&quot;),
-    labels = c(&quot;FALSE&quot; = &quot;in-sample&quot;, &quot;TRUE&quot;  = &quot;forecast&quot;),
-    guide  = guide_legend(title = NULL)
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(
-    title    = &quot;Bongkrek — GMITS 4-Step Forecast (n = 4)&quot;,
-    subtitle = &quot;Blue = GMITS + 95% PI; Orange = exp. regression; Grey = final ground truth&quot;,
-    x = &quot;Date&quot;, y = &quot;Cases&quot;
-  )</code></pre>
-<p><img src="GMITS_Research_files/figure-html/plot-bongkrek-forecast-1.png" width="672" /></p>
-</div>
-<div id="listeria-n-4-5-6" class="section level2">
-<h2>Listeria (n = 4 / 5 / 6)</h2>
-<p>Three input sizes are compared. n = 6 is the primary scenario
-(maximum data available from the Sep 12 snapshot before the forecast
-window). n = 4 and n = 5 demonstrate sensitivity to input size.</p>
-<pre class="r"><code>n_ahead_l &lt;- 4
-
-run_listeria_fc &lt;- function(df_n) {
-  res_g  &lt;- gmits_boot(df_n$Count_input, df_n$Date,
-                       n_boot = 1000, n_ahead = n_ahead_l)
-  res_er &lt;- exp_reg(df_n$Count_input, df_n$Date, n_ahead = n_ahead_l)
-  n_fit  &lt;- nrow(df_n)
-  dt_mean &lt;- mean(diff(as.numeric(df_n$Date)))
-  data.frame(
-    Date     = c(df_n$Date,
-                 df_n$Date[n_fit] + round(dt_mean * seq_len(n_ahead_l))),
-    Point    = res_g$point,
-    Lower    = res_g$lower,
-    Upper    = res_g$upper,
-    ExpReg   = c(res_er$x0_hat, res_er$x0_future),
-    Forecast = c(rep(FALSE, n_fit), rep(TRUE, n_ahead_l)),
-    n_label  = paste0(&quot;n = &quot;, n_fit)
-  )
-}
-
-df_lst_fc &lt;- bind_rows(
-  run_listeria_fc(lst_n4),
-  run_listeria_fc(lst_n5),
-  run_listeria_fc(lst_n6)
-) |&gt;
-  mutate(n_label = factor(n_label, levels = c(&quot;n = 4&quot;, &quot;n = 5&quot;, &quot;n = 6&quot;)))</code></pre>
-<pre class="r"><code>gt_l &lt;- lst_combined |&gt;
-  filter(!is.na(Count_gt)) |&gt;
-  select(Date, GT = Count_gt)
-
-ggplot() +
-  geom_col(
-    data = gt_l |&gt;
-      filter(Date &gt;= as.Date(&quot;2011-08-16&quot;),
-             Date &lt;= as.Date(&quot;2011-09-10&quot;)),
-    aes(Date, GT),
-    fill = &quot;grey80&quot;, alpha = 0.6
-  ) +
-  geom_ribbon(
-    data = df_lst_fc,
-    aes(Date, ymin = Lower, ymax = Upper, fill = n_label),
-    alpha = 0.2
-  ) +
-  geom_line(
-    data = df_lst_fc,
-    aes(Date, Point, color = n_label, linetype = Forecast),
-    linewidth = 0.9
-  ) +
-  geom_line(
-    data = df_lst_fc,
-    aes(Date, ExpReg, color = n_label, linetype = Forecast),
-    linetype = &quot;dotted&quot;, linewidth = 0.7
-  ) +
-  scale_linetype_manual(
-    values = c(&quot;FALSE&quot; = &quot;solid&quot;, &quot;TRUE&quot; = &quot;dashed&quot;),
-    labels = c(&quot;FALSE&quot; = &quot;in-sample&quot;, &quot;TRUE&quot; = &quot;forecast&quot;),
-    guide  = guide_legend(title = NULL)
-  ) +
-  scale_color_brewer(palette = &quot;Dark2&quot;, name = &quot;Input size&quot;) +
-  scale_fill_brewer(palette  = &quot;Dark2&quot;, name = &quot;Input size&quot;) +
-  scale_x_date(date_labels = &quot;%m/%d&quot;, date_breaks = &quot;7 days&quot;) +
-  facet_wrap(~ n_label, ncol = 1) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(
-    title    = &quot;Listeria — GMITS 4-Step Forecast by Input Size&quot;,
-    subtitle = &quot;Solid/dashed = GMITS; Dotted = exp. regression; Grey = final ground truth (082712A)&quot;,
-    x = &quot;Date&quot;, y = &quot;Cases&quot;
-  )</code></pre>
-<p><img src="GMITS_Research_files/figure-html/plot-listeria-forecast-1.png" width="672" /></p>
-<hr />
-</div>
-</div>
-<div id="right-truncation-sensitivity" class="section level1">
-<h1>Right Truncation Sensitivity</h1>
-<p>The most recent observation in the n = 4 Listeria input (Aug 23,
-count = 1) may be underreported due to reporting delay. We scale it by
-1.5× and 2.0× and compare the resulting 4-step forecasts.</p>
-<pre class="r"><code>adj_none &lt;- lst_n4$Count_input
-adj_1_5  &lt;- truncation_adjust(lst_n4$Count_input, n_recent = 1, scale_factor = 1.5)
-adj_2_0  &lt;- truncation_adjust(lst_n4$Count_input, n_recent = 1, scale_factor = 2.0)
-
-run_trunc &lt;- function(counts, label) {
-  res    &lt;- gmits_boot(counts, lst_n4$Date, n_boot = 1000, n_ahead = n_ahead_l)
-  n_fit  &lt;- nrow(lst_n4)
-  dt_mean &lt;- mean(diff(as.numeric(lst_n4$Date)))
-  data.frame(
-    Date      = c(lst_n4$Date,
-                  lst_n4$Date[n_fit] + round(dt_mean * seq_len(n_ahead_l))),
-    Point     = res$point,
-    Lower     = res$lower,
-    Upper     = res$upper,
-    Forecast  = c(rep(FALSE, n_fit), rep(TRUE, n_ahead_l)),
-    Adjustment = label
-  )
-}
-
-df_trunc &lt;- bind_rows(
-  run_trunc(adj_none, &quot;No adjustment&quot;),
-  run_trunc(adj_1_5,  &quot;Scale ×1.5&quot;),
-  run_trunc(adj_2_0,  &quot;Scale ×2.0&quot;)
-) |&gt;
-  mutate(Adjustment = factor(
-    Adjustment,
-    levels = c(&quot;No adjustment&quot;, &quot;Scale ×1.5&quot;, &quot;Scale ×2.0&quot;)
-  ))</code></pre>
-<pre class="r"><code>ggplot() +
-  geom_col(
-    data = gt_l |&gt;
-      filter(Date &gt;= as.Date(&quot;2011-08-16&quot;),
-             Date &lt;= as.Date(&quot;2011-09-10&quot;)),
-    aes(Date, GT),
-    fill = &quot;grey80&quot;, alpha = 0.6
-  ) +
-  geom_ribbon(
-    data = df_trunc,
-    aes(Date, ymin = Lower, ymax = Upper, fill = Adjustment),
-    alpha = 0.2
-  ) +
-  geom_line(
-    data = df_trunc,
-    aes(Date, Point, color = Adjustment, linetype = Forecast),
-    linewidth = 0.9
-  ) +
-  scale_linetype_manual(
-    values = c(&quot;FALSE&quot; = &quot;solid&quot;, &quot;TRUE&quot; = &quot;dashed&quot;),
-    guide  = guide_legend(title = NULL)
-  ) +
-  scale_color_manual(
-    values = c(&quot;No adjustment&quot; = &quot;#1b9e77&quot;,
-               &quot;Scale ×1.5&quot;   = &quot;#d95f02&quot;,
-               &quot;Scale ×2.0&quot;   = &quot;#7570b3&quot;),
-    name = &quot;Truncation adj.&quot;
-  ) +
-  scale_fill_manual(
-    values = c(&quot;No adjustment&quot; = &quot;#1b9e77&quot;,
-               &quot;Scale ×1.5&quot;   = &quot;#d95f02&quot;,
-               &quot;Scale ×2.0&quot;   = &quot;#7570b3&quot;),
-    name = &quot;Truncation adj.&quot;
-  ) +
-  scale_x_date(date_labels = &quot;%m/%d&quot;, date_breaks = &quot;7 days&quot;) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(
-    title    = &quot;Listeria n = 4 — Right Truncation Sensitivity&quot;,
-    subtitle = &quot;Point + 95% PI under three adjustments; Grey = final ground truth&quot;,
-    x = &quot;Date&quot;, y = &quot;Cases&quot;
-  )</code></pre>
-<p><img src="GMITS_Research_files/figure-html/plot-truncation-1.png" width="672" /></p>
-<hr />
-</div>
-<div id="out-of-sample-error-summary" class="section level1">
-<h1>Out-of-Sample Error Summary</h1>
-<p>Ground truth for Bongkrek: <code>Tracking_4_07b</code> at the first
-forecast step (3/24). Ground truth for Listeria: <code>082712A</code> at
-all 4 forecast steps.</p>
-<pre class="r"><code># ---- Bongkrek: 1 verifiable step (3/24) ----
-bong_step1_date &lt;- as.Date(&quot;2024-03-24&quot;)
-bong_gt_step1   &lt;- bong_gt_obs[bong_gt_date == bong_step1_date]
-
-bong_fc_step1_g  &lt;- df_bong_fc |&gt;
-  filter(Forecast, Date == bong_step1_date) |&gt;
-  pull(Point)
-bong_fc_step1_er &lt;- df_bong_fc |&gt;
-  filter(Forecast, Date == bong_step1_date) |&gt;
-  pull(ExpReg)
-
-# ---- Listeria n=6: 4 verifiable steps ----
-fc_n6 &lt;- df_lst_fc |&gt;
-  filter(n_label == &quot;n = 6&quot;, Forecast)
-
-lst_gt_fc &lt;- lst_combined |&gt;
-  filter(Date %in% fc_n6$Date) |&gt;
-  select(Date, Count_gt)
-
-lst_err &lt;- fc_n6 |&gt;
-  left_join(lst_gt_fc, by = &quot;Date&quot;) |&gt;
-  filter(!is.na(Count_gt))
-
-# ---- Summary table ----
-bind_rows(
-  data.frame(
-    Dataset   = &quot;Bongkrek&quot;,
-    Model     = &quot;GMITS&quot;,
-    n_input   = 4L,
-    n_steps   = 1L,
-    MAE_oos   = abs(bong_fc_step1_g  - bong_gt_step1),
-    MAPE_oos  = abs(bong_fc_step1_g  - bong_gt_step1) /
-                  bong_gt_step1 * 100
-  ),
-  data.frame(
-    Dataset   = &quot;Bongkrek&quot;,
-    Model     = &quot;Exp. Reg.&quot;,
-    n_input   = 4L,
-    n_steps   = 1L,
-    MAE_oos   = abs(bong_fc_step1_er - bong_gt_step1),
-    MAPE_oos  = abs(bong_fc_step1_er - bong_gt_step1) /
-                  bong_gt_step1 * 100
-  ),
-  data.frame(
-    Dataset   = &quot;Listeria (n = 6)&quot;,
-    Model     = &quot;GMITS&quot;,
-    n_input   = 6L,
-    n_steps   = nrow(lst_err),
-    MAE_oos   = mae(lst_err$Count_gt, lst_err$Point),
-    MAPE_oos  = mape(lst_err$Count_gt, lst_err$Point)
-  ),
-  data.frame(
-    Dataset   = &quot;Listeria (n = 6)&quot;,
-    Model     = &quot;Exp. Reg.&quot;,
-    n_input   = 6L,
-    n_steps   = nrow(lst_err),
-    MAE_oos   = mae(lst_err$Count_gt, lst_err$ExpReg),
-    MAPE_oos  = mape(lst_err$Count_gt, lst_err$ExpReg)
-  )
-) |&gt;
-  kable(
-    digits    = 2,
-    col.names = c(&quot;Dataset&quot;, &quot;Model&quot;, &quot;n input&quot;,
-                  &quot;Steps verified&quot;, &quot;MAE (oos)&quot;, &quot;MAPE % (oos)&quot;),
-    caption   = &quot;Out-of-sample error: GMITS vs. exponential regression&quot;
-  ) |&gt;
-  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;)) |&gt;
-  pack_rows(&quot;Bongkrek (1 verifiable step)&quot;, 1, 2) |&gt;
-  pack_rows(&quot;Listeria 2011 (4 verifiable steps)&quot;, 3, 4)</code></pre>
-<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
-<caption>
-Out-of-sample error: GMITS vs. exponential regression
-</caption>
-<thead>
-<tr>
-<th style="text-align:left;">
-Dataset
-</th>
-<th style="text-align:left;">
-Model
-</th>
-<th style="text-align:right;">
-n input
-</th>
-<th style="text-align:right;">
-Steps verified
-</th>
-<th style="text-align:right;">
-MAE (oos)
-</th>
-<th style="text-align:right;">
-MAPE % (oos)
-</th>
-</tr>
-</thead>
-<tbody>
-<tr grouplength="2">
-<td colspan="6" style="border-bottom: 1px solid;">
-<strong>Bongkrek (1 verifiable step)</strong>
-</td>
-</tr>
-<tr>
-<td style="text-align:left;padding-left: 2em;" indentlevel="1">
-Bongkrek
-</td>
-<td style="text-align:left;">
-GMITS
-</td>
-<td style="text-align:right;">
-4
-</td>
-<td style="text-align:right;">
-1
-</td>
-<td style="text-align:right;">
-4.64
-</td>
-<td style="text-align:right;">
-58.05
-</td>
-</tr>
-<tr>
-<td style="text-align:left;padding-left: 2em;" indentlevel="1">
-Bongkrek
-</td>
-<td style="text-align:left;">
-Exp. Reg.
-</td>
-<td style="text-align:right;">
-4
-</td>
-<td style="text-align:right;">
-1
-</td>
-<td style="text-align:right;">
-5.16
-</td>
-<td style="text-align:right;">
-64.47
-</td>
-</tr>
-<tr grouplength="2">
-<td colspan="6" style="border-bottom: 1px solid;">
-<strong>Listeria 2011 (4 verifiable steps)</strong>
-</td>
-</tr>
-<tr>
-<td style="text-align:left;padding-left: 2em;" indentlevel="1">
-Listeria (n = 6)
-</td>
-<td style="text-align:left;">
-GMITS
-</td>
-<td style="text-align:right;">
-6
-</td>
-<td style="text-align:right;">
-4
-</td>
-<td style="text-align:right;">
-1.77
-</td>
-<td style="text-align:right;">
-45.45
-</td>
-</tr>
-<tr>
-<td style="text-align:left;padding-left: 2em;" indentlevel="1">
-Listeria (n = 6)
-</td>
-<td style="text-align:left;">
-Exp. Reg.
-</td>
-<td style="text-align:right;">
-6
-</td>
-<td style="text-align:right;">
-4
-</td>
-<td style="text-align:right;">
-1.95
-</td>
-<td style="text-align:right;">
-50.20
-</td>
-</tr>
-</tbody>
-</table>
+<p>Three points stand out. First, with complete (oracle) input, GMITS
+forecasts one week ahead with a MAPE under 20% from only five weekly
+points. Second, on the input actually available in real time it does
+worse than the exponential regression, and right truncation, not the
+model form, is the dominant source of error. Third, with five points the
+bootstrap intervals are unreliable: coverage is well below the nominal
+95%, so the intervals should not be read as calibrated until the
+simulation study planned for this project has quantified their
+coverage.</p>
 <hr />
 <div id="revision-history" class="section level2">
 <h2>Revision history</h2>
@@ -1408,6 +1381,20 @@ Listeria (n = 6) MAPE 90.25% → 45.45% (exp. regression 50.20%). Bongkrek
 (n = 4) MAPE 81.19% → 58.05% (exp. regression 64.47%). With 4 and 1
 verifiable steps, these do not establish that either method is more
 accurate.</td>
+</tr>
+<tr class="odd">
+<td align="left">2026-10-14</td>
+<td align="left">Replaced the real-data evaluation with real-time
+snapshots of the 2022 England mpox outbreak (person-to-person
+transmission; reporting-triangle snapshots at six growth-phase forecast
+origins, weekly counts, n = 5). The right-truncation section now
+compares reported, ×1.5-adjusted and backfilled (oracle) inputs instead
+of fixed scaling factors. The Bongkrek and Listeria analyses remain on
+their own pages as common-source examples.</td>
+<td align="left">New headline results (1 week ahead, 6 snapshots): GMITS
+MAPE 59.2% on reported input, 17.2% on oracle input; exponential
+regression 35.6%. 95% PI coverage 33% (reported) and 67% (oracle). Only
+21–47% of the most recent week had been reported at each snapshot.</td>
 </tr>
 </tbody>
 </table>

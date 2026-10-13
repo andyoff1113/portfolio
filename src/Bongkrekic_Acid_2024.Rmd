@@ -15,6 +15,12 @@ for (pkg in c("tidyverse", "kableExtra")) {
 }
 ```
 
+> **Supplementary example.** This is a common-source outbreak: its epicurve
+> reflects exposure timing and the incubation period rather than transmission,
+> so the GMITS growth coefficient here describes the curve shape only. The main
+> real-data evaluation of GMITS uses the 2022 England mpox outbreak — see the
+> [GMITS research overview](GMITS_Research.html).
+
 ## Functions {-}
 
 All pages load the same function file, `R/gmits_functions.R`.

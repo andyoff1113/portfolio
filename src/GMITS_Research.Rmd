@@ -2,7 +2,7 @@
 title: "GMITS: Grey Model for Irregular Time Series"
 subtitle: "Research Overview — Early-Stage Outbreak Forecasting"
 author: "Andy Chu"
-date: "2026-05-23 (last updated 2026-10-13)"
+date: "2026-05-23 (last updated 2026-10-14)"
 ---
 
 ```{r setup, include=FALSE}
@@ -18,10 +18,11 @@ for (pkg in c("tidyverse", "kableExtra")) {
 GMITS extends the classical grey-system GM(1,1) model to irregularly
 spaced reporting intervals, aimed at early-stage outbreak forecasting
 when only a handful of data points are available. This page collects
-the shared methodology and applies it to two real outbreaks — see
+the shared methodology, checks it on synthetic data, and evaluates it on
+real-time snapshots of the 2022 England mpox outbreak. Earlier
+applications to two food-borne outbreaks are on the
 [Bongkrekic Acid Food Poisoning (2024)](Bongkrekic_Acid_2024.html) and
-[2011 Listeria Outbreak](Listeria_2011.html) for the standalone
-write-ups of each.
+[2011 Listeria Outbreak](Listeria_2011.html) pages.
 
 ## Functions {-}
 
@@ -180,430 +181,326 @@ and short reporting intervals.
 
 ---
 
-# Data
+# Data: 2022 England mpox outbreak
 
-## Bongkrek Acid Food Poisoning (2024)
+Mpox spread from person to person, so early incidence grows roughly
+exponentially and the GMITS growth coefficient can be read as a growth
+rate. (The two food-borne outbreaks analysed earlier are common-source
+events whose epicurves are shaped by exposure timing and the incubation
+period, not by transmission; they are kept as supplementary examples on
+the [Bongkrekic acid](Bongkrekic_Acid_2024.html) and
+[Listeria](Listeria_2011.html) pages.)
 
-Point-source food poisoning; 6 exposure dates over 3/18–3/24. Snapshot
-`Tracking_3_26b` (Mar 26) is the **input**: 4 non-zero reporting days
-(3/19, 3/21, 3/22, 3/23). Snapshot `Tracking_4_07b` (Apr 7, final) is the
-**ground truth**.
+The data come from the repository accompanying Overton et al. (2023),
+*Nowcasting the 2022 mpox outbreak in England* (arXiv:2302.09076),
+released under CC0. Two parts are used:
 
-```{r data-bongkrek}
-df_bongkrek <- data.frame(
-  Date           = as.Date(c(
-    "2024/3/18", "2024/3/19", "2024/3/21",
-    "2024/3/22", "2024/3/23", "2024/3/24"
-  )),
-  Tracking_4_07b = c(1, 5, 6, 8, 6, 8),  # final ground truth
-  Tracking_3_26b = c(0, 2, 2, 2, 3, 0)   # early snapshot (n = 4)
+- **Ground truth:** daily cases by specimen date after all backfilling.
+- **Real-time snapshots:** the reporting triangle as it stood on day
+  *T*, i.e. only the cases that had been reported by then.
+
+Dates are anonymised in the source, so the x-axis is a day index.
+Symptom-onset snapshots start after the peak, so the specimen-date series
+is used. Daily counts drop sharply at weekends, so counts are summed into
+non-overlapping 7-day weeks ending on the snapshot day.
+
+```{r data-mpox}
+mpox_dir <- "data/mpox_england"
+snapshots <- seq(75, 100, by = 5)
+
+truth_daily <- read_csv(
+  file.path(mpox_dir, "full_data_specimen.csv"),
+  show_col_types = FALSE
 )
 
-# Extract n=4 non-zero input
-bong_input_obs  <- na_if(df_bongkrek$Tracking_3_26b, 0L)
-bong_input_date <- df_bongkrek$Date
-bong_gt_obs     <- df_bongkrek$Tracking_4_07b
-bong_gt_date    <- df_bongkrek$Date
+snapshot_daily <- function(t_snap) {
+  read_csv(
+    file.path(
+      mpox_dir,
+      paste0("nowcasting_input_specimen_", t_snap, ".csv")
+    ),
+    show_col_types = FALSE
+  ) |>
+    group_by(origin) |>
+    summarise(n = sum(value, na.rm = TRUE), .groups = "drop")
+}
+
+week_sum <- function(daily, week_ends) {
+  sapply(week_ends, function(e) {
+    sum(daily$n[daily$origin > e - 7 & daily$origin <= e])
+  })
+}
 ```
 
-```{r plot-bongkrek-epicurve}
-ggplot(df_bongkrek, aes(Date, Tracking_4_07b)) +
-  geom_col(fill = "steelblue", alpha = 0.7) +
-  geom_col(
-    aes(y = na_if(Tracking_3_26b, 0L)),
-    fill = "darkorange", alpha = 0.8
+```{r plot-mpox-epicurve, fig.height = 3.5}
+ggplot(truth_daily |> filter(origin <= 160), aes(origin, n)) +
+  annotate(
+    "rect",
+    xmin = min(snapshots) - 0.5, xmax = max(snapshots) + 0.5,
+    ymin = -Inf, ymax = Inf,
+    fill = "#2a78d6", alpha = 0.08
   ) +
-  scale_x_date(date_labels = "%m-%d", date_breaks = "1 day") +
+  geom_col(fill = "grey60", width = 0.8) +
+  geom_vline(
+    xintercept = snapshots, linetype = "dotted", color = "#2a78d6"
+  ) +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(
-    title   = "Bongkrek — Epicurve Comparison",
-    subtitle = "Blue = final (Apr 7); Orange = early snapshot (Mar 26)",
-    x = "Date", y = "Cases"
+    title = "England mpox 2022 — daily cases by specimen date",
+    subtitle = paste0(
+      "Backfilled ground truth; dotted lines = forecast origins ",
+      "(snapshots T = 75, 80, ..., 100)"
+    ),
+    x = "Day index (anonymised)", y = "Cases"
   )
 ```
 
-## 2011 Listeria Outbreak
+How incomplete were the most recent data at each snapshot? The table
+compares the last week as reported on day *T* with its eventual total.
 
-Sporadic foodborne transmission; illness-onset series (A files).
-Snapshot `091211A` (Sep 12, 2011) is the **input**; `082712A` (Aug 27, 2012)
-is the **ground truth** (final report).
+```{r mpox-completeness}
+completeness <- tibble(snapshot = snapshots) |>
+  mutate(
+    reported = map_dbl(snapshot, function(t) {
+      week_sum(snapshot_daily(t), t)
+    }),
+    final = map_dbl(snapshot, function(t) week_sum(truth_daily, t)),
+    pct = 100 * reported / final
+  )
 
-```{r data-listeria}
-wd <- "d:/Projects/RA/Listeria/data mdy"
-
-read_snap <- function(fname) {
-  read_csv(
-    file.path(wd, fname),
-    col_types = cols(Date = col_character(), Count = col_integer())
-  ) |>
-    mutate(
-      Date = as.Date(Date),
-      Snapshot = str_remove(fname, "\\.csv$")
-    )
-}
-
-lst_input <- read_snap("091211A.csv") |> rename(Count_input = Count)
-lst_gt    <- read_snap("082712A.csv") |> rename(Count_gt    = Count)
-
-lst_combined <- full_join(
-  lst_input |> select(Date, Count_input),
-  lst_gt    |> select(Date, Count_gt),
-  by = "Date"
-) |>
-  arrange(Date)
-
-# Non-zero reporting days from input snapshot (091211A)
-lst_nonzero <- lst_input |>
-  filter(Count_input > 0) |>
-  arrange(Date)
-
-# First 6 non-zero days (n=6 primary)
-lst_n6 <- lst_nonzero |> slice_head(n = 6)
-# First 5 non-zero days
-lst_n5 <- lst_nonzero |> slice_head(n = 5)
-# First 4 non-zero days
-lst_n4 <- lst_nonzero |> slice_head(n = 4)
-```
-
-```{r listeria-input-table}
-lst_n6 |>
-  mutate(delta_t = c(NA, diff(as.numeric(Date)))) |>
+completeness |>
   kable(
-    col.names = c("Date", "Count (input)", "Snapshot", "Δt (days)"),
-    caption   = "Listeria input: first 6 non-zero reporting days (091211A)"
+    digits = 1,
+    col.names = c(
+      "Snapshot T", "Last week, reported by T",
+      "Last week, final", "Reported (%)"
+    ),
+    caption = "Right truncation in the most recent week"
   ) |>
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
+
+At every forecast origin only
+`r round(min(completeness$pct))`–`r round(max(completeness$pct))`% of the
+most recent week had been reported.
 
 ---
 
 # Early-Stage Forecasting
 
-## Bongkrek (n = 4)
+At each snapshot the last 5 weeks are used as input (n = 5 points,
+Δt = 7 days) and the next 2 weeks are forecast. Three inputs are compared:
 
-Four non-zero observations from the Mar 26 snapshot are used to generate a
-4-step-ahead forecast. The first step lands on 3/24 (ground truth = 8 cases),
-the remaining three steps are genuine predictions beyond the input window.
+- **Reported:** counts as available on day *T* (right-truncated).
+- **Reported, last week ×1.5:** a simple truncation adjustment.
+- **Oracle:** the backfilled counts for the same weeks, i.e. what a
+  perfect truncation correction would give.
 
-```{r forecast-bongkrek}
-n_ahead_b <- 4
+The exponential regression baseline is fitted to the reported input.
 
-res_bong <- gmits_boot(
-  count  = bong_input_obs,
-  date   = bong_input_date,
-  n_boot = 1000,
-  n_ahead = n_ahead_b
-)
-res_bong_er <- exp_reg(
-  count  = bong_input_obs,
-  date   = bong_input_date,
-  n_ahead = n_ahead_b
-)
+```{r forecast-mpox}
+n_fit_m <- 5
+n_ahead_m <- 2
 
-valid_b     <- !is.na(bong_input_obs)
-dates_fit_b <- bong_input_date[valid_b]
-n_fit_b     <- sum(valid_b)
-dt_mean_b   <- mean(diff(as.numeric(dates_fit_b)))
+run_snapshot <- function(t_snap) {
+  fit_ends <- t_snap - 7 * rev(seq_len(n_fit_m) - 1)
+  fut_ends <- t_snap + 7 * seq_len(n_ahead_m)
+  fit_dates <- as.Date("2022-01-01") + fit_ends
 
-df_bong_fc <- data.frame(
-  Date     = c(dates_fit_b, dates_fit_b[n_fit_b] +
-                 round(dt_mean_b * seq_len(n_ahead_b))),
-  Point    = res_bong$point,
-  Lower    = res_bong$lower,
-  Upper    = res_bong$upper,
-  ExpReg   = c(res_bong_er$x0_hat, res_bong_er$x0_future),
-  Forecast = c(rep(FALSE, n_fit_b), rep(TRUE, n_ahead_b))
-)
-```
-
-```{r plot-bongkrek-forecast}
-gt_b <- data.frame(Date = bong_gt_date, GT = bong_gt_obs)
-
-ggplot() +
-  geom_col(
-    data = gt_b,
-    aes(Date, GT),
-    fill = "grey80", alpha = 0.6
-  ) +
-  geom_ribbon(
-    data = df_bong_fc,
-    aes(Date, ymin = Lower, ymax = Upper),
-    fill = "steelblue", alpha = 0.25
-  ) +
-  geom_line(
-    data = df_bong_fc,
-    aes(Date, Point, linetype = Forecast),
-    color = "steelblue", linewidth = 0.9
-  ) +
-  geom_line(
-    data = df_bong_fc,
-    aes(Date, ExpReg, linetype = Forecast),
-    color = "darkorange", linewidth = 0.9
-  ) +
-  geom_point(
-    data = df_bong_fc |> filter(!Forecast),
-    aes(Date, Point),
-    color = "steelblue", size = 2
-  ) +
-  scale_x_date(date_labels = "%m-%d", date_breaks = "1 day") +
-  scale_linetype_manual(
-    values = c("FALSE" = "solid", "TRUE"  = "dashed"),
-    labels = c("FALSE" = "in-sample", "TRUE"  = "forecast"),
-    guide  = guide_legend(title = NULL)
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(
-    title    = "Bongkrek — GMITS 4-Step Forecast (n = 4)",
-    subtitle = "Blue = GMITS + 95% PI; Orange = exp. regression; Grey = final ground truth",
-    x = "Date", y = "Cases"
+  obs <- week_sum(snapshot_daily(t_snap), fit_ends)
+  inputs <- list(
+    "GMITS (reported)" = obs,
+    "GMITS (reported, ×1.5)" = truncation_adjust(obs, 1, 1.5),
+    "GMITS (oracle)" = week_sum(truth_daily, fit_ends)
   )
-```
 
-## Listeria (n = 4 / 5 / 6)
+  fc <- imap(inputs, function(x, nm) {
+    res <- gmits_boot(x, fit_dates, n_boot = 1000, n_ahead = n_ahead_m)
+    tibble(
+      method = nm,
+      input = c(x, rep(NA, n_ahead_m)),
+      point = res$point,
+      lower = res$lower,
+      upper = res$upper
+    )
+  })
 
-Three input sizes are compared. n = 6 is the primary scenario (maximum data
-available from the Sep 12 snapshot before the forecast window). n = 4 and
-n = 5 demonstrate sensitivity to input size.
-
-```{r forecast-listeria}
-n_ahead_l <- 4
-
-run_listeria_fc <- function(df_n) {
-  res_g  <- gmits_boot(df_n$Count_input, df_n$Date,
-                       n_boot = 1000, n_ahead = n_ahead_l)
-  res_er <- exp_reg(df_n$Count_input, df_n$Date, n_ahead = n_ahead_l)
-  n_fit  <- nrow(df_n)
-  dt_mean <- mean(diff(as.numeric(df_n$Date)))
-  data.frame(
-    Date     = c(df_n$Date,
-                 df_n$Date[n_fit] + round(dt_mean * seq_len(n_ahead_l))),
-    Point    = res_g$point,
-    Lower    = res_g$lower,
-    Upper    = res_g$upper,
-    ExpReg   = c(res_er$x0_hat, res_er$x0_future),
-    Forecast = c(rep(FALSE, n_fit), rep(TRUE, n_ahead_l)),
-    n_label  = paste0("n = ", n_fit)
+  # exp_reg() drops zero weeks, so rebuild fitted values on the full grid
+  er <- exp_reg(obs, fit_dates)
+  t_all <- as.numeric(
+    as.Date("2022-01-01") + c(fit_ends, fut_ends) - er$date[1]
   )
+  fc$exp_reg <- tibble(
+    method = "Exp. regression (reported)",
+    input = c(obs, rep(NA, n_ahead_m)),
+    point = exp(er$alpha + er$beta * t_all),
+    lower = NA_real_,
+    upper = NA_real_
+  )
+
+  bind_rows(fc) |>
+    group_by(method) |>
+    mutate(
+      step = seq_len(n()) - n_fit_m,
+      week_end = c(fit_ends, fut_ends),
+      truth = week_sum(truth_daily, c(fit_ends, fut_ends))
+    ) |>
+    ungroup() |>
+    mutate(snapshot = t_snap)
 }
 
-df_lst_fc <- bind_rows(
-  run_listeria_fc(lst_n4),
-  run_listeria_fc(lst_n5),
-  run_listeria_fc(lst_n6)
-) |>
-  mutate(n_label = factor(n_label, levels = c("n = 4", "n = 5", "n = 6")))
+mpox_fc <- map_dfr(snapshots, run_snapshot)
+
+method_cols <- c(
+  "GMITS (reported)" = "#2a78d6",
+  "Exp. regression (reported)" = "#eb6834",
+  "GMITS (oracle)" = "#1baf7a",
+  "GMITS (reported, ×1.5)" = "#eda100"
+)
 ```
 
-```{r plot-listeria-forecast}
-gt_l <- lst_combined |>
-  filter(!is.na(Count_gt)) |>
-  select(Date, GT = Count_gt)
+```{r plot-mpox-forecast, fig.height = 7}
+plot_methods <- c(
+  "GMITS (reported)", "GMITS (oracle)", "Exp. regression (reported)"
+)
+plot_df <- mpox_fc |> filter(method %in% plot_methods)
+truth_weeks <- mpox_fc |> distinct(snapshot, week_end, truth, step)
 
 ggplot() +
   geom_col(
-    data = gt_l |>
-      filter(Date >= as.Date("2011-08-16"),
-             Date <= as.Date("2011-09-10")),
-    aes(Date, GT),
-    fill = "grey80", alpha = 0.6
+    data = truth_weeks,
+    aes(week_end, truth, alpha = step > 0),
+    fill = "grey60", width = 5
+  ) +
+  geom_point(
+    data = mpox_fc |> filter(method == "GMITS (reported)", step <= 0),
+    aes(week_end, input),
+    shape = 4, size = 2
   ) +
   geom_ribbon(
-    data = df_lst_fc,
-    aes(Date, ymin = Lower, ymax = Upper, fill = n_label),
-    alpha = 0.2
+    data = plot_df |> filter(step >= 0, !is.na(lower)),
+    aes(week_end, ymin = lower, ymax = upper, fill = method),
+    alpha = 0.18
   ) +
   geom_line(
-    data = df_lst_fc,
-    aes(Date, Point, color = n_label, linetype = Forecast),
-    linewidth = 0.9
+    data = plot_df,
+    aes(week_end, point, color = method),
+    linewidth = 0.8
   ) +
-  geom_line(
-    data = df_lst_fc,
-    aes(Date, ExpReg, color = n_label, linetype = Forecast),
-    linetype = "dotted", linewidth = 0.7
+  geom_vline(
+    data = distinct(mpox_fc, snapshot),
+    aes(xintercept = snapshot + 0.5),
+    linetype = "dashed", color = "grey40"
   ) +
-  scale_linetype_manual(
-    values = c("FALSE" = "solid", "TRUE" = "dashed"),
-    labels = c("FALSE" = "in-sample", "TRUE" = "forecast"),
-    guide  = guide_legend(title = NULL)
+  facet_wrap(~ snapshot, labeller = label_both, scales = "free_y") +
+  scale_color_manual(
+    values = method_cols, breaks = plot_methods,
+    aesthetics = c("color", "fill"), name = NULL
   ) +
-  scale_color_brewer(palette = "Dark2", name = "Input size") +
-  scale_fill_brewer(palette  = "Dark2", name = "Input size") +
-  scale_x_date(date_labels = "%m/%d", date_breaks = "7 days") +
-  facet_wrap(~ n_label, ncol = 1) +
+  scale_alpha_manual(
+    values = c("FALSE" = 0.45, "TRUE" = 0.85),
+    labels = c("FALSE" = "fit window (final)", "TRUE" = "forecast (final)"),
+    name = NULL
+  ) +
+  coord_cartesian(ylim = c(0, NA)) +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "bottom", legend.box = "vertical") +
   labs(
-    title    = "Listeria — GMITS 4-Step Forecast by Input Size",
-    subtitle = "Solid/dashed = GMITS; Dotted = exp. regression; Grey = final ground truth (082712A)",
-    x = "Date", y = "Cases"
+    title = "England mpox — 2-week GMITS forecasts at six snapshots",
+    subtitle = paste0(
+      "× = counts as reported at the snapshot; bars = final counts
+",
+      "ribbons = 95% bootstrap PI (clipped at 0)"
+    ),
+    x = "Week ending (day index)", y = "Weekly cases"
   )
 ```
+
+With the truncated input, the most recent week drags the fitted curve
+down and GMITS forecasts a near-flat trajectory. With the oracle input
+the same model tracks the growth closely one week ahead, but at the
+later snapshots (T = 90–100), where growth was already slowing towards
+the peak, the constant-rate extrapolation overshoots two weeks ahead.
 
 ---
 
-# Right Truncation Sensitivity
+# Right Truncation
 
-The most recent observation in the n = 4 Listeria input (Aug 23, count = 1)
-may be underreported due to reporting delay. We scale it by 1.5× and 2.0× and
-compare the resulting 4-step forecasts.
+The gap between the reported and oracle inputs isolates the error caused
+by right truncation. The figure shows the one-week-ahead absolute
+percentage error for every input at every snapshot.
 
-```{r truncation-sensitivity}
-adj_none <- lst_n4$Count_input
-adj_1_5  <- truncation_adjust(lst_n4$Count_input, n_recent = 1, scale_factor = 1.5)
-adj_2_0  <- truncation_adjust(lst_n4$Count_input, n_recent = 1, scale_factor = 2.0)
-
-run_trunc <- function(counts, label) {
-  res    <- gmits_boot(counts, lst_n4$Date, n_boot = 1000, n_ahead = n_ahead_l)
-  n_fit  <- nrow(lst_n4)
-  dt_mean <- mean(diff(as.numeric(lst_n4$Date)))
-  data.frame(
-    Date      = c(lst_n4$Date,
-                  lst_n4$Date[n_fit] + round(dt_mean * seq_len(n_ahead_l))),
-    Point     = res$point,
-    Lower     = res$lower,
-    Upper     = res$upper,
-    Forecast  = c(rep(FALSE, n_fit), rep(TRUE, n_ahead_l)),
-    Adjustment = label
+```{r plot-truncation, fig.height = 3.8}
+ape_df <- mpox_fc |>
+  filter(step == 1) |>
+  mutate(
+    ape = 100 * abs(point - truth) / truth,
+    method = factor(method, levels = names(method_cols))
   )
-}
 
-df_trunc <- bind_rows(
-  run_trunc(adj_none, "No adjustment"),
-  run_trunc(adj_1_5,  "Scale ×1.5"),
-  run_trunc(adj_2_0,  "Scale ×2.0")
-) |>
-  mutate(Adjustment = factor(
-    Adjustment,
-    levels = c("No adjustment", "Scale ×1.5", "Scale ×2.0")
-  ))
-```
-
-```{r plot-truncation}
-ggplot() +
-  geom_col(
-    data = gt_l |>
-      filter(Date >= as.Date("2011-08-16"),
-             Date <= as.Date("2011-09-10")),
-    aes(Date, GT),
-    fill = "grey80", alpha = 0.6
-  ) +
-  geom_ribbon(
-    data = df_trunc,
-    aes(Date, ymin = Lower, ymax = Upper, fill = Adjustment),
-    alpha = 0.2
-  ) +
-  geom_line(
-    data = df_trunc,
-    aes(Date, Point, color = Adjustment, linetype = Forecast),
-    linewidth = 0.9
-  ) +
-  scale_linetype_manual(
-    values = c("FALSE" = "solid", "TRUE" = "dashed"),
-    guide  = guide_legend(title = NULL)
-  ) +
-  scale_color_manual(
-    values = c("No adjustment" = "#1b9e77",
-               "Scale ×1.5"   = "#d95f02",
-               "Scale ×2.0"   = "#7570b3"),
-    name = "Truncation adj."
-  ) +
-  scale_fill_manual(
-    values = c("No adjustment" = "#1b9e77",
-               "Scale ×1.5"   = "#d95f02",
-               "Scale ×2.0"   = "#7570b3"),
-    name = "Truncation adj."
-  ) +
-  scale_x_date(date_labels = "%m/%d", date_breaks = "7 days") +
+ggplot(ape_df, aes(factor(snapshot), ape, color = method)) +
+  geom_point(size = 3, position = position_dodge(width = 0.55)) +
+  scale_color_manual(values = method_cols, name = NULL) +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(nrow = 2)) +
   labs(
-    title    = "Listeria n = 4 — Right Truncation Sensitivity",
-    subtitle = "Point + 95% PI under three adjustments; Grey = final ground truth",
-    x = "Date", y = "Cases"
+    title = "One-week-ahead error by input",
+    subtitle = "Absolute percentage error against final counts",
+    x = "Snapshot T", y = "APE (%)"
   )
 ```
+
+Scaling the last week by 1.5 removes only part of the error, because the
+real shortfall was a factor of roughly
+`r round(100 / max(completeness$pct), 1)`–`r round(100 / min(completeness$pct), 1)`.
+A delay-distribution based nowcast of the input is the natural next
+step.
 
 ---
 
 # Out-of-Sample Error Summary
 
-Ground truth for Bongkrek: `Tracking_4_07b` at the first forecast step (3/24).
-Ground truth for Listeria: `082712A` at all 4 forecast steps.
+Errors are averaged over the six snapshots. Coverage is the share of
+snapshots whose final count fell inside the 95% bootstrap interval.
 
 ```{r error-summary}
-# ---- Bongkrek: 1 verifiable step (3/24) ----
-bong_step1_date <- as.Date("2024-03-24")
-bong_gt_step1   <- bong_gt_obs[bong_gt_date == bong_step1_date]
-
-bong_fc_step1_g  <- df_bong_fc |>
-  filter(Forecast, Date == bong_step1_date) |>
-  pull(Point)
-bong_fc_step1_er <- df_bong_fc |>
-  filter(Forecast, Date == bong_step1_date) |>
-  pull(ExpReg)
-
-# ---- Listeria n=6: 4 verifiable steps ----
-fc_n6 <- df_lst_fc |>
-  filter(n_label == "n = 6", Forecast)
-
-lst_gt_fc <- lst_combined |>
-  filter(Date %in% fc_n6$Date) |>
-  select(Date, Count_gt)
-
-lst_err <- fc_n6 |>
-  left_join(lst_gt_fc, by = "Date") |>
-  filter(!is.na(Count_gt))
-
-# ---- Summary table ----
-bind_rows(
-  data.frame(
-    Dataset   = "Bongkrek",
-    Model     = "GMITS",
-    n_input   = 4L,
-    n_steps   = 1L,
-    MAE_oos   = abs(bong_fc_step1_g  - bong_gt_step1),
-    MAPE_oos  = abs(bong_fc_step1_g  - bong_gt_step1) /
-                  bong_gt_step1 * 100
-  ),
-  data.frame(
-    Dataset   = "Bongkrek",
-    Model     = "Exp. Reg.",
-    n_input   = 4L,
-    n_steps   = 1L,
-    MAE_oos   = abs(bong_fc_step1_er - bong_gt_step1),
-    MAPE_oos  = abs(bong_fc_step1_er - bong_gt_step1) /
-                  bong_gt_step1 * 100
-  ),
-  data.frame(
-    Dataset   = "Listeria (n = 6)",
-    Model     = "GMITS",
-    n_input   = 6L,
-    n_steps   = nrow(lst_err),
-    MAE_oos   = mae(lst_err$Count_gt, lst_err$Point),
-    MAPE_oos  = mape(lst_err$Count_gt, lst_err$Point)
-  ),
-  data.frame(
-    Dataset   = "Listeria (n = 6)",
-    Model     = "Exp. Reg.",
-    n_input   = 6L,
-    n_steps   = nrow(lst_err),
-    MAE_oos   = mae(lst_err$Count_gt, lst_err$ExpReg),
-    MAPE_oos  = mape(lst_err$Count_gt, lst_err$ExpReg)
-  )
-) |>
-  kable(
-    digits    = 2,
-    col.names = c("Dataset", "Model", "n input",
-                  "Steps verified", "MAE (oos)", "MAPE % (oos)"),
-    caption   = "Out-of-sample error: GMITS vs. exponential regression"
+mpox_fc |>
+  filter(step > 0) |>
+  mutate(
+    ape = 100 * abs(point - truth) / truth,
+    covered = truth >= lower & truth <= upper
   ) |>
-  kable_styling(bootstrap_options = c("striped", "hover")) |>
-  pack_rows("Bongkrek (1 verifiable step)", 1, 2) |>
-  pack_rows("Listeria 2011 (4 verifiable steps)", 3, 4)
+  group_by(method, step) |>
+  summarise(
+    MAE = mean(abs(point - truth)),
+    MAPE = mean(ape),
+    coverage = 100 * mean(covered),
+    width = mean(upper - lower),
+    .groups = "drop"
+  ) |>
+  mutate(method = factor(method, levels = names(method_cols))) |>
+  arrange(step, method) |>
+  mutate(step = paste(step, if_else(step == 1, "week", "weeks"))) |>
+  kable(
+    digits = 1,
+    col.names = c(
+      "Input / model", "Horizon", "MAE", "MAPE (%)",
+      "95% PI coverage (%)", "Mean PI width"
+    ),
+    caption = "England mpox: out-of-sample error over 6 snapshots (n = 5)"
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "hover"))
 ```
+
+Three points stand out. First, with complete (oracle) input, GMITS
+forecasts one week ahead with a MAPE under 20% from only five weekly
+points. Second, on the input actually available in real time it does
+worse than the exponential regression, and right truncation, not the
+model form, is the dominant source of error. Third, with five points the
+bootstrap intervals are unreliable: coverage is well below the nominal
+95%, so the intervals should not be read as calibrated until the
+simulation study planned for this project has quantified their coverage.
 
 ---
 
@@ -615,3 +512,4 @@ Only changes that affect reported results are listed.
 | :--- | :--- | :--- |
 | 2026-05-23 | Initial analysis | — |
 | 2026-10-13 | Corrected the `gmits()` regression. Integrating $dx^{(1)}/dt + a x^{(1)} = b$ over each interval gives $x^{(0)}_{k} = -a z_{k} + b$; the previous code regressed on $(-z_{k}\Delta t_{k}, \Delta t_{k})$, which shrank $(\hat a, \hat b)$ by $1/\Delta t$ whenever reporting intervals were not one day (and could flip the sign of $\hat a$ on irregular grids). All GMITS pages now load one shared function file. | Synthetic growth scenario: $\hat a$ −0.116 → −0.357 (true −0.4). Listeria (n = 6) MAPE 90.25% → 45.45% (exp. regression 50.20%). Bongkrek (n = 4) MAPE 81.19% → 58.05% (exp. regression 64.47%). With 4 and 1 verifiable steps, these do not establish that either method is more accurate. |
+| 2026-10-14 | Replaced the real-data evaluation with real-time snapshots of the 2022 England mpox outbreak (person-to-person transmission; reporting-triangle snapshots at six growth-phase forecast origins, weekly counts, n = 5). The right-truncation section now compares reported, ×1.5-adjusted and backfilled (oracle) inputs instead of fixed scaling factors. The Bongkrek and Listeria analyses remain on their own pages as common-source examples. | New headline results (1 week ahead, 6 snapshots): GMITS MAPE 59.2% on reported input, 17.2% on oracle input; exponential regression 35.6%. 95% PI coverage 33% (reported) and 67% (oracle). Only 21–47% of the most recent week had been reported at each snapshot. |
