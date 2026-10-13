@@ -6,8 +6,9 @@ A selection of past analyses and research work.
 
 - **[GMITS: Grey Model for Irregular Time Series](GMITS_Research.html)**
   *(2026-05-23; updated 2026-10-14)* — Research overview of GMITS methodology:
-  synthetic validation and real-time forecasting on snapshots of the
-  2022 England mpox outbreak, including the effect of right truncation.
+  synthetic validation and real-time forecasting from the first n weekly
+  reports of the 2022 England mpox outbreak, compared with exponential
+  regression and including the effect of right truncation.
 
 - **[2011 Listeria Outbreak](Listeria_2011.html)** *(2026-05-23; updated 2026-10-13)* — GMITS
   applied to a sporadic foodborne outbreak, comparing forecast accuracy

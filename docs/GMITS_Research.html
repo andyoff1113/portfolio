@@ -366,7 +366,8 @@ Forecasting</h3>
 spaced reporting intervals, aimed at early-stage outbreak forecasting
 when only a handful of data points are available. This page collects the
 shared methodology, checks it on synthetic data, and evaluates it on
-real-time snapshots of the 2022 England mpox outbreak. Earlier
+real-time snapshots of the 2022 England mpox outbreak, forecasting from
+the first n weekly reports (n = 4–8) as the outbreak unfolded. Earlier
 applications to two food-borne outbreaks are on the <a
 href="Bongkrekic_Acid_2024.html">Bongkrekic Acid Food Poisoning
 (2024)</a> and <a href="Listeria_2011.html">2011 Listeria Outbreak</a>
@@ -1177,29 +1178,43 @@ days had barely been reported and reporting at three to four days’ delay
 was slower than the parametric delay distribution implies.</p>
 <hr />
 </div>
-<div id="early-stage-forecasting" class="section level1">
-<h1>Early-Stage Forecasting</h1>
-<p>At each snapshot the last 5 weeks are used as input (n = 5 points, Δt
-= 7 days) and the next 2 weeks are forecast. GMITS and the exponential
-regression baseline are both fitted to four versions of the input:</p>
+<div id="forecasting-from-the-first-n-reports" class="section level1">
+<h1>Forecasting from the First n Reports</h1>
+<p>This is the question GMITS was designed for: <strong>when only the
+first n weekly reports of an outbreak are available, how well do GMITS
+and the exponential regression forecast, and how much do they improve as
+n grows?</strong></p>
+<p>Weeks are counted from the start of the outbreak. Week 1 covers days
+48–54; the grid is fixed so that week 4 ends on day 75, the earliest
+snapshot in the source data (a single case on day 46 falls before week
+1). After n weeks the forecast origin is T = 54 + 7(n − 1), so n = 4, …,
+8 corresponds to T = 75, 82, 89, 96 and 103. Each forecast uses the
+snapshot of day T, so the latest week is right-truncated exactly as it
+was in real time. Both models are fitted to the same inputs:</p>
 <ul>
 <li><strong>Reported:</strong> counts as available on day <em>T</em>
 (right-truncated).</li>
-<li><strong>Reported ×1.5:</strong> the most recent week scaled by a
-fixed factor.</li>
-<li><strong>Nowcast:</strong> delay-based adjustment described
+<li><strong>Nowcast:</strong> the delay-based adjustment described
 above.</li>
 <li><strong>Oracle:</strong> the backfilled counts for the same weeks,
 i.e. what a perfect truncation correction would give. Not available in
 real time; shown as a reference.</li>
+<li><strong>Reported ×1.5:</strong> the most recent week scaled by a
+fixed factor; used only in the sliding-window comparison further
+below.</li>
 </ul>
+<p>There is one forecast per n and horizon, so differences between
+neighbouring values of n are single realisations from one outbreak
+rather than averages.</p>
 <pre class="r"><code>n_fit_m &lt;- 5
 n_ahead_m &lt;- 2
 input_levels &lt;- c(&quot;Reported&quot;, &quot;Reported ×1.5&quot;, &quot;Nowcast&quot;, &quot;Oracle&quot;)
 model_cols &lt;- c(&quot;GMITS&quot; = &quot;#2a78d6&quot;, &quot;Exp. regression&quot; = &quot;#eb6834&quot;)
 
-run_snapshot &lt;- function(t_snap) {
-  fit_ends &lt;- t_snap - 7 * rev(seq_len(n_fit_m) - 1)
+# Fit both models to every input version, using the n_fit weeks that end
+# on the snapshot day, and forecast n_ahead_m weeks
+run_snapshot &lt;- function(t_snap, n_fit = n_fit_m) {
+  fit_ends &lt;- t_snap - 7 * rev(seq_len(n_fit) - 1)
   fut_ends &lt;- t_snap + 7 * seq_len(n_ahead_m)
   fit_dates &lt;- as.Date(&quot;2022-01-01&quot;) + fit_ends
   all_dates &lt;- as.Date(&quot;2022-01-01&quot;) + c(fit_ends, fut_ends)
@@ -1232,19 +1247,400 @@ run_snapshot &lt;- function(t_snap) {
       mutate(
         input_type = nm,
         input = rep(c(x, rep(NA, n_ahead_m)), 2),
-        step = rep(seq_len(n_fit_m + n_ahead_m) - n_fit_m, 2),
+        step = rep(seq_len(n_fit + n_ahead_m) - n_fit, 2),
         week_end = rep(c(fit_ends, fut_ends), 2),
         truth = rep(week_sum(truth_daily, c(fit_ends, fut_ends)), 2)
       )
   }) |&gt;
-    mutate(snapshot = t_snap)
-}
+    mutate(
+      snapshot = t_snap,
+      input_type = factor(input_type, levels = input_levels),
+      model = factor(model, levels = names(model_cols))
+    )
+}</code></pre>
+<pre class="r"><code>week1_end &lt;- 54
+n_grid &lt;- 4:8
 
-mpox_fc &lt;- map_dfr(snapshots, run_snapshot) |&gt;
+first_n_fc &lt;- map_dfr(n_grid, function(n) {
+  run_snapshot(week1_end + 7 * (n - 1), n_fit = n) |&gt;
+    mutate(n = n)
+})
+
+first_n_err &lt;- first_n_fc |&gt;
+  filter(step &gt; 0, input_type != &quot;Reported ×1.5&quot;) |&gt;
   mutate(
-    input_type = factor(input_type, levels = input_levels),
-    model = factor(model, levels = names(model_cols))
+    ape = 100 * abs(point - truth) / truth,
+    covered = truth &gt;= lower &amp; truth &lt;= upper,
+    horizon = factor(
+      if_else(step == 1, &quot;1 week ahead&quot;, &quot;2 weeks ahead&quot;)
+    ),
+    input_type = droplevels(input_type)
   )</code></pre>
+<pre class="r"><code>ggplot(first_n_err, aes(n, ape, color = model)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2.2) +
+  facet_grid(horizon ~ input_type) +
+  scale_color_manual(values = model_cols, name = NULL) +
+  scale_x_continuous(breaks = n_grid) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(
+    title = &quot;Forecast error from the first n weekly reports&quot;,
+    subtitle = paste0(
+      &quot;Absolute percentage error against final counts; &quot;,
+      &quot;Oracle is not available in real time&quot;
+    ),
+    x = &quot;Number of weekly reports used (n)&quot;, y = &quot;APE (%)&quot;
+  )</code></pre>
+<p><img src="GMITS_Research_files/figure-html/plot-first-n-error-1.png" width="672" /></p>
+<pre class="r"><code>first_n_err |&gt;
+  filter(step == 1) |&gt;
+  select(n, snapshot, input_type, model, ape) |&gt;
+  mutate(col = paste(input_type, model, sep = &quot;: &quot;)) |&gt;
+  select(-input_type, -model) |&gt;
+  pivot_wider(names_from = col, values_from = ape) |&gt;
+  left_join(
+    first_n_err |&gt;
+      filter(step == 1, model == &quot;GMITS&quot;, input_type == &quot;Nowcast&quot;) |&gt;
+      select(n, covered),
+    by = &quot;n&quot;
+  ) |&gt;
+  mutate(
+    covered = if_else(covered, &quot;yes&quot;, &quot;no&quot;),
+    last_week_pct = map_dbl(snapshot, function(t) {
+      100 * week_sum(snapshot_daily(t), t) / week_sum(truth_daily, t)
+    }),
+    .after = snapshot
+  ) |&gt;
+  kable(
+    digits = 1,
+    col.names = c(
+      &quot;n&quot;, &quot;Snapshot T&quot;, &quot;Last week reported (%)&quot;,
+      &quot;GMITS&quot;, &quot;Exp. reg.&quot;, &quot;GMITS&quot;, &quot;Exp. reg.&quot;, &quot;GMITS&quot;, &quot;Exp. reg.&quot;,
+      &quot;In GMITS 95% PI (nowcast)&quot;
+    ),
+    caption = &quot;One-week-ahead APE (%) from the first n weekly reports&quot;
+  ) |&gt;
+  add_header_above(c(
+    &quot; &quot; = 3, &quot;Reported&quot; = 2, &quot;Nowcast&quot; = 2, &quot;Oracle&quot; = 2, &quot; &quot; = 1
+  )) |&gt;
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;))</code></pre>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+<caption>
+One-week-ahead APE (%) from the first n weekly reports
+</caption>
+<thead>
+<tr>
+<th style="empty-cells: hide;border-bottom:hidden;" colspan="3">
+</th>
+<th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="2">
+<div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">
+Reported
+</div>
+</th>
+<th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="2">
+<div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">
+Nowcast
+</div>
+</th>
+<th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="2">
+<div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">
+Oracle
+</div>
+</th>
+<th style="empty-cells: hide;border-bottom:hidden;" colspan="1">
+</th>
+</tr>
+<tr>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+Snapshot T
+</th>
+<th style="text-align:right;">
+Last week reported (%)
+</th>
+<th style="text-align:right;">
+GMITS
+</th>
+<th style="text-align:right;">
+Exp. reg.
+</th>
+<th style="text-align:right;">
+GMITS
+</th>
+<th style="text-align:right;">
+Exp. reg.
+</th>
+<th style="text-align:right;">
+GMITS
+</th>
+<th style="text-align:right;">
+Exp. reg.
+</th>
+<th style="text-align:left;">
+In GMITS 95% PI (nowcast)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+75
+</td>
+<td style="text-align:right;">
+26.0
+</td>
+<td style="text-align:right;">
+77.2
+</td>
+<td style="text-align:right;">
+32.0
+</td>
+<td style="text-align:right;">
+60.5
+</td>
+<td style="text-align:right;">
+50.4
+</td>
+<td style="text-align:right;">
+27.3
+</td>
+<td style="text-align:right;">
+166.9
+</td>
+<td style="text-align:left;">
+no
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+82
+</td>
+<td style="text-align:right;">
+31.5
+</td>
+<td style="text-align:right;">
+69.4
+</td>
+<td style="text-align:right;">
+4.8
+</td>
+<td style="text-align:right;">
+33.3
+</td>
+<td style="text-align:right;">
+84.8
+</td>
+<td style="text-align:right;">
+1.6
+</td>
+<td style="text-align:right;">
+147.4
+</td>
+<td style="text-align:left;">
+no
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+89
+</td>
+<td style="text-align:right;">
+26.8
+</td>
+<td style="text-align:right;">
+59.9
+</td>
+<td style="text-align:right;">
+1.8
+</td>
+<td style="text-align:right;">
+22.4
+</td>
+<td style="text-align:right;">
+89.5
+</td>
+<td style="text-align:right;">
+13.4
+</td>
+<td style="text-align:right;">
+150.9
+</td>
+<td style="text-align:left;">
+no
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+96
+</td>
+<td style="text-align:right;">
+25.0
+</td>
+<td style="text-align:right;">
+45.2
+</td>
+<td style="text-align:right;">
+25.0
+</td>
+<td style="text-align:right;">
+11.3
+</td>
+<td style="text-align:right;">
+107.4
+</td>
+<td style="text-align:right;">
+35.9
+</td>
+<td style="text-align:right;">
+182.9
+</td>
+<td style="text-align:left;">
+yes
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+103
+</td>
+<td style="text-align:right;">
+24.6
+</td>
+<td style="text-align:right;">
+16.9
+</td>
+<td style="text-align:right;">
+79.2
+</td>
+<td style="text-align:right;">
+22.0
+</td>
+<td style="text-align:right;">
+180.5
+</td>
+<td style="text-align:right;">
+84.7
+</td>
+<td style="text-align:right;">
+283.9
+</td>
+<td style="text-align:left;">
+yes
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>fn_plot &lt;- first_n_fc |&gt; filter(input_type == &quot;Nowcast&quot;)
+fn_truth &lt;- first_n_fc |&gt; distinct(n, week_end, truth, step)
+fn_pts &lt;- first_n_fc |&gt;
+  filter(
+    model == &quot;GMITS&quot;, step &lt;= 0,
+    input_type %in% c(&quot;Reported&quot;, &quot;Nowcast&quot;)
+  )
+
+ggplot() +
+  geom_col(
+    data = fn_truth,
+    aes(week_end, truth, alpha = step &gt; 0),
+    fill = &quot;grey60&quot;, width = 5
+  ) +
+  geom_ribbon(
+    data = fn_plot |&gt; filter(step &gt;= 0, !is.na(lower)),
+    aes(week_end, ymin = lower, ymax = upper),
+    fill = model_cols[[&quot;GMITS&quot;]], alpha = 0.18
+  ) +
+  geom_line(
+    data = fn_plot,
+    aes(week_end, point, color = model),
+    linewidth = 0.8
+  ) +
+  geom_point(
+    data = fn_pts,
+    aes(week_end, input, shape = input_type),
+    size = 2
+  ) +
+  facet_wrap(~ n, labeller = label_both, scales = &quot;free_y&quot;, ncol = 3) +
+  scale_color_manual(values = model_cols, name = NULL) +
+  scale_shape_manual(
+    values = c(&quot;Reported&quot; = 4, &quot;Nowcast&quot; = 16),
+    labels = c(&quot;Reported&quot; = &quot;reported at T&quot;, &quot;Nowcast&quot; = &quot;nowcast&quot;),
+    name = NULL
+  ) +
+  scale_alpha_manual(
+    values = c(&quot;FALSE&quot; = 0.45, &quot;TRUE&quot; = 0.85),
+    labels = c(&quot;FALSE&quot; = &quot;fit window (final)&quot;, &quot;TRUE&quot; = &quot;forecast (final)&quot;),
+    name = NULL
+  ) +
+  coord_cartesian(ylim = c(0, NA)) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;, legend.box = &quot;vertical&quot;) +
+  labs(
+    title = &quot;Forecasts from the first n weekly reports (nowcast input)&quot;,
+    subtitle = paste0(
+      &quot;Bars = final counts; crosses = reported at T; &quot;,
+      &quot;dots = nowcast-adjusted\n&quot;,
+      &quot;Ribbon = GMITS 95% bootstrap PI (clipped at 0)&quot;
+    ),
+    x = &quot;Week ending (day index)&quot;, y = &quot;Weekly cases&quot;
+  )</code></pre>
+<p><img src="GMITS_Research_files/figure-html/plot-first-n-forecast-1.png" width="672" /></p>
+<p>What the first-n forecasts show:</p>
+<ul>
+<li><strong>GMITS on the nowcast input improves quickly with n while
+growth is still exponential.</strong> One week ahead its error falls
+from 61% (n = 4) to 33%, 22% and 11% (n = 5–7); two weeks ahead from 70%
+to 30% and 5% (n = 4–6). At n = 8 (T = 103) the outbreak is close to its
+peak and the constant-rate extrapolation starts to overshoot (22% and
+41%).</li>
+<li><strong>The exponential regression does not improve with n on
+corrected input; it gets worse</strong> (one week ahead on the nowcast
+input: 50% at n = 4 to 181% at n = 8; on the oracle input 147–284%
+throughout). Because the window starts at the first week of the
+outbreak, the very small early counts dominate the log-linear slope, and
+the extrapolation overshoots further as growth slows.</li>
+<li><strong>On the raw reported input the regression looks excellent at
+n = 5–6 (5% and 2%)</strong>, but this is the same offsetting of errors
+seen in the sliding window: the truncated last week flattens a slope
+that would otherwise overshoot. It disappears once the input is
+corrected.</li>
+<li><strong>The GMITS intervals are not yet calibrated:</strong> the
+final count fell inside the 95% interval in 2 of 5 one-week forecasts on
+the nowcast input.</li>
+</ul>
+<p>One caveat limits what a single outbreak can show. Here n and the
+stage of the outbreak move together: a larger n also means a forecast
+origin closer to the peak, where any exponential extrapolation fails.
+Whether GMITS’s accuracy improves with n <em>at a fixed stage of
+growth</em> can only be separated in the planned simulation study, where
+outbreaks with known growth rates can be truncated at any n.</p>
+<hr />
+</div>
+<div id="sliding-window-last-five-weeks-at-six-snapshots"
+class="section level1">
+<h1>Sliding Window: Last Five Weeks at Six Snapshots</h1>
+<p>As a complement, each of six snapshots (T = 75, 80, …, 100) uses only
+the most recent 5 weeks (n = 5) rather than counting from the start of
+the outbreak. Only the earliest snapshots coincide with the first
+reports; the later ones ask how well a short recent window forecasts
+once the outbreak is under way.</p>
+<pre class="r"><code>mpox_fc &lt;- map_dfr(snapshots, run_snapshot)</code></pre>
 <p>The figure shows both models fitted to the nowcast input, against the
 counts as reported (crosses) and after adjustment (dots).</p>
 <pre class="r"><code>plot_df &lt;- mpox_fc |&gt; filter(input_type == &quot;Nowcast&quot;)
@@ -1308,13 +1704,13 @@ ggplot() +
 <p><img src="GMITS_Research_files/figure-html/plot-mpox-forecast-1.png" width="672" /></p>
 <hr />
 </div>
-<div id="gmits-vs.-exponential-regression-on-truncated-data"
-class="section level1">
-<h1>GMITS vs. Exponential Regression on Truncated Data</h1>
-<p>The question that matters in real time is how each model performs on
-the data actually available on day <em>T</em>. The figure shows the
-one-week-ahead absolute percentage error at every snapshot for each
-input; the bar marks the mean over snapshots.</p>
+<div id="sliding-window-error-by-input" class="section level1">
+<h1>Sliding Window: Error by Input</h1>
+<p>Within the sliding window, the question that matters in real time is
+how each model performs on the data actually available on day
+<em>T</em>. The figure shows the one-week-ahead absolute percentage
+error at every snapshot for each input; the bar marks the mean over
+snapshots.</p>
 <pre class="r"><code>ape_df &lt;- mpox_fc |&gt;
   filter(step == 1) |&gt;
   mutate(ape = 100 * abs(point - truth) / truth)
@@ -1839,6 +2235,17 @@ separate direction from speed.</td>
 a\)</span>: growth 0.933 and 0.892, decay 0.978 and 0.957 (for <span
 class="math inline">\(\lvert a\rvert\)</span> = 0.3 and 0.4). Equal
 grid: 0.956 and 0.924 in both directions, equal to theory.</td>
+</tr>
+<tr class="odd">
+<td align="left">2026-10-14</td>
+<td align="left">Added the core evaluation: forecasts from the first n
+weekly reports of the outbreak (n = 4–8, forecast origins T = 75–103,
+each using that day’s snapshot), for GMITS and the exponential
+regression on reported, nowcast and oracle input. The sliding-window
+analysis is kept as a complement.</td>
+<td align="left">One week ahead on nowcast input, GMITS vs. exponential
+regression: n = 4: 61% vs. 50%; n = 5: 33% vs. 85%; n = 6: 22% vs. 90%;
+n = 7: 11% vs. 107%; n = 8 (near the peak): 22% vs. 181%.</td>
 </tr>
 </tbody>
 </table>

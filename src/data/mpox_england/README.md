@@ -7,8 +7,9 @@ Copied from the `publication_data/` folder of the code and data repository
 - `full_data_specimen.csv`: daily cases by specimen date after backfilling
   (ground truth). `origin` is an anonymised day index.
 - `nowcasting_input_specimen_<T>.csv`: reporting triangle as of day `T`
-  (`value` is NA for cells not yet observed). Only the growth-phase
-  snapshots used on the GMITS page (T = 75, 80, ..., 100) are included.
+  (`value` is NA for cells not yet observed). Only the snapshots used on
+  the GMITS page are included: T = 75, 80, ..., 100 (sliding window) and
+  T = 75, 82, 89, 96, 103 (first n weekly reports, n = 4-8).
 
 Reference: Overton, C. E., et al. (2023). Nowcasting the 2022 mpox outbreak
 in England. arXiv:2302.09076.
