@@ -34,107 +34,113 @@ The regression in `gmits()` was corrected on 2026-10-13; see the
 
 # Synthetic Validation
 
-Validates that GMITS recovers known parameters from irregular-interval data with
-no noise. Two scenarios: growth phase (a < 0) and decay phase (a > 0).
+Validates that GMITS recovers known parameters from noise-free,
+irregularly spaced data. A 2 × 2 design crosses direction (growth,
+a < 0; decay, a > 0) with speed (|a| = 0.3 or 0.4 per day), holding
+b, the first value and the time grid fixed, so that the effects of
+direction and speed can be read separately. The same four series are
+also fitted on an equally spaced grid with the same mean interval.
 
 ```{r synth-validate}
-# Generate x0 from ODE solution with known (a, b, x0[1]) and irregular spacing
+# Generate x0 from the ODE solution with known (a, b, x0[1])
 synth_series <- function(a, b, x0_1, t_pts) {
   x1 <- (x0_1 - b / a) * exp(-a * t_pts) + b / a
-  dt <- diff(t_pts)
-  x0 <- c(x0_1, diff(x1) / dt)
-  list(x0 = x0, dates = as.Date("2024-01-01") + t_pts)
+  c(x0_1, diff(x1) / diff(t_pts))
 }
 
-t_irr    <- c(0, 2, 4, 7, 10)   # irregular gaps: 2, 2, 3, 3
+t_irr     <- c(0, 2, 4, 7, 10)   # irregular gaps: 2, 2, 3, 3
+t_eq      <- seq(0, 10, by = 2.5) # equal gaps, same mean interval
 n_ahead_s <- 3
+b_s       <- 5
+x0_1_s    <- 8
 
-# Growth scenario
-s1 <- synth_series(a = -0.4, b = 3, x0_1 = 2, t_pts = t_irr)
-r1 <- gmits(s1$x0, s1$dates, n_ahead = n_ahead_s)
+# 2 x 2 design: direction (growth / decay) x speed (|a| = 0.3 / 0.4),
+# with b, x0[1] and the time grid held fixed
+synth_scen <- expand_grid(
+  direction = c("Growth", "Decay"),
+  abs_a = c(0.3, 0.4)
+) |>
+  mutate(a = if_else(direction == "Growth", -abs_a, abs_a))
 
-# Decay scenario
-s2 <- synth_series(a = 0.3, b = 5, x0_1 = 8, t_pts = t_irr)
-r2 <- gmits(s2$x0, s2$dates, n_ahead = n_ahead_s)
-
-# True ODE continuation for comparison in plot
-true_oos <- function(a, b, x0_1, t_fit, n_ahead) {
-  dt_mean  <- mean(diff(t_fit))
-  t_fut    <- t_fit[length(t_fit)] + cumsum(rep(dt_mean, n_ahead))
-  t_all    <- c(t_fit, t_fut)
-  x1_all   <- (x0_1 - b / a) * exp(-a * t_all) + b / a
-  dt_all   <- diff(t_all)
-  c(x0_1, diff(x1_all) / dt_all)
+fit_synth <- function(a, t_fit) {
+  dt_mean <- mean(diff(t_fit))
+  t_all <- c(t_fit, max(t_fit) + dt_mean * seq_len(n_ahead_s))
+  x0 <- synth_series(a, b_s, x0_1_s, t_fit)
+  r <- gmits(x0, as.Date("2024-01-01") + t_fit, n_ahead = n_ahead_s)
+  list(
+    a_hat = r$a,
+    traj = tibble(
+      t = t_all,
+      True = synth_series(a, b_s, x0_1_s, t_all),
+      Fitted = c(r$x0_hat, r$x0_future),
+      Forecast = rep(c(FALSE, TRUE), c(length(t_fit), n_ahead_s))
+    )
+  )
 }
 
-synth_true1 <- true_oos(-0.4, 3, 2, t_irr, n_ahead_s)
-synth_true2 <- true_oos( 0.3, 5, 8, t_irr, n_ahead_s)
-
-data.frame(
-  Scenario    = c("Growth (a = -0.4)", "Decay (a = 0.3)"),
-  a_true      = c(-0.4,  0.3),
-  b_true      = c( 3.0,  5.0),
-  a_hat       = round(c(r1$a, r2$a), 6),
-  b_hat       = round(c(r1$b, r2$b), 6),
-  MAE_in_samp = c(
-    mae(s1$x0, r1$x0_hat),
-    mae(s2$x0, r2$x0_hat)
+synth_res <- synth_scen |>
+  mutate(
+    irr = map(a, fit_synth, t_fit = t_irr),
+    eq = map(a, fit_synth, t_fit = t_eq),
+    a_hat = map_dbl(irr, "a_hat"),
+    shrink_irr = a_hat / a,
+    shrink_eq = map_dbl(eq, "a_hat") / a,
+    # exact attenuation for an exponential on an equal grid
+    shrink_theory = 1 / ((abs_a * 2.5 / 2) / tanh(abs_a * 2.5 / 2)),
+    fc_err_3 = map_dbl(irr, function(f) {
+      x <- tail(f$traj, 1)
+      100 * (x$Fitted - x$True) / x$True
+    })
   )
-) |>
+
+synth_res |>
+  select(direction, a, a_hat, shrink_irr, shrink_eq, shrink_theory,
+         fc_err_3) |>
   kable(
-    digits  = 6,
-    caption = "GMITS parameter recovery on noise-free synthetic data"
+    digits = 3,
+    col.names = c(
+      "Direction", "True a", "GMITS a (irregular grid)",
+      "a_hat / a, irregular grid", "a_hat / a, equal grid",
+      "Theory, equal grid", "Forecast error at step 3 (%)"
+    ),
+    caption = paste0(
+      "GMITS parameter recovery on noise-free synthetic data ",
+      "(b = 5, x0[1] = 8)"
+    )
   ) |>
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-```{r plot-synth-validate, fig.height = 7}
-n_fit_s <- length(t_irr)
-dt_mean_s <- mean(diff(t_irr))
-t_oos   <- t_irr[n_fit_s] + cumsum(rep(dt_mean_s, n_ahead_s))
-t_all_s <- c(t_irr, t_oos)
-
-make_synth_df <- function(scenario, true_vals, fitted_vals, future_vals,
-                          true_oos_vals) {
-  n_fit <- length(true_vals)
-  data.frame(
-    t        = t_all_s,
-    True     = c(true_vals, true_oos_vals),
-    Fitted   = c(fitted_vals, future_vals),
-    Forecast = c(rep(FALSE, n_fit), rep(TRUE, n_ahead_s)),
-    Scenario = scenario
+```{r plot-synth-validate, fig.height = 8.5}
+df_synth <- synth_res |>
+  select(direction, abs_a, irr) |>
+  mutate(traj = map(irr, "traj")) |>
+  select(-irr) |>
+  unnest(traj) |>
+  mutate(
+    rel_err = 100 * (Fitted - True) / True,
+    direction = factor(direction, levels = c("Growth", "Decay")),
+    speed = factor(paste0("|a| = ", abs_a))
   )
-}
-
-df_synth <- bind_rows(
-  make_synth_df(
-    "Growth (a = -0.4)", s1$x0, r1$x0_hat,
-    r1$x0_future, tail(synth_true1, n_ahead_s)
-  ),
-  make_synth_df(
-    "Decay (a = 0.3)", s2$x0, r2$x0_hat,
-    r2$x0_future, tail(synth_true2, n_ahead_s)
-  )
-) |>
-  mutate(rel_err = 100 * (Fitted - True) / True)
 
 # Repeat the last fitted point in the forecast segment so the dashed
 # forecast line starts where the solid fitted line ends
 df_synth_plot <- bind_rows(
   df_synth |> filter(!Forecast) |> mutate(segment = "in-sample"),
   df_synth |>
-    filter(Forecast | t == t_irr[n_fit_s]) |>
+    filter(Forecast | t == max(t_irr)) |>
     mutate(segment = "forecast")
 ) |>
   pivot_longer(c(True, Fitted), names_to = "type", values_to = "value") |>
   mutate(segment = factor(segment, levels = c("in-sample", "forecast")))
 
 synth_boundary <- geom_vline(
-  xintercept = t_irr[n_fit_s] + dt_mean_s / 2,
+  xintercept = max(t_irr) + mean(diff(t_irr)) / 2,
   linetype = "dotted", color = "grey60"
 )
 synth_x <- expression("Time (days from " * t[0] * ")")
-synth_xscale <- scale_x_continuous(limits = range(t_all_s))
+synth_xscale <- scale_x_continuous(limits = range(df_synth$t))
+speed_cols <- c("|a| = 0.3" = "#86b6ef", "|a| = 0.4" = "#1c5cab")
 
 p_values <- ggplot(
   df_synth_plot,
@@ -142,10 +148,10 @@ p_values <- ggplot(
       group = interaction(type, segment))
 ) +
   synth_boundary +
-  geom_line(linewidth = 0.9) +
+  geom_line(linewidth = 0.8) +
   geom_point(
     data = df_synth_plot |> filter(segment == "in-sample", type == "True"),
-    size = 2.5
+    size = 2
   ) +
   scale_color_manual(
     values = c(True = "black", Fitted = "steelblue"),
@@ -155,37 +161,46 @@ p_values <- ggplot(
     values = c("in-sample" = "solid", "forecast" = "dashed"),
     name   = NULL
   ) +
-  facet_wrap(~ Scenario, scales = "free_y", ncol = 2) +
-  theme_minimal() +
+  # one row per speed, one column per direction; each panel its own y
+  facet_wrap(
+    ~ speed + direction, ncol = 2, scales = "free_y",
+    labeller = label_wrap_gen(multi_line = FALSE)
+  ) +
   synth_xscale +
+  theme_minimal() +
   labs(x = NULL, y = "Period incidence")
 
-p_error <- ggplot(df_synth |> filter(t > 0), aes(t, rel_err)) +
+p_error <- ggplot(
+  df_synth |> filter(t > 0),
+  aes(t, rel_err, color = speed)
+) +
   synth_boundary +
   geom_hline(yintercept = 0, color = "grey40") +
-  geom_line(color = "steelblue", linewidth = 0.8) +
-  geom_point(aes(shape = Forecast), color = "steelblue", size = 2.2) +
+  geom_line(linewidth = 0.8) +
+  geom_point(aes(shape = Forecast), size = 2.2) +
+  scale_color_manual(values = speed_cols, name = NULL) +
   scale_shape_manual(
     values = c("FALSE" = 16, "TRUE" = 1),
     labels = c("FALSE" = "in-sample", "TRUE" = "forecast"),
     name   = NULL
   ) +
   # free_y keeps both panels' axes drawn (so they line up with the top
-  # row); the fixed limits keep one common scale
-  facet_wrap(~ Scenario, ncol = 2, scales = "free_y") +
+  # rows); the fixed limits keep one common scale
+  facet_wrap(~ direction, ncol = 2, scales = "free_y") +
   scale_y_continuous(limits = range(c(0, df_synth$rel_err))) +
   synth_xscale +
   theme_minimal() +
   labs(x = synth_x, y = "Relative error (%)")
 
 p_values / p_error +
-  plot_layout(heights = c(1.4, 1), guides = "collect") +
+  plot_layout(heights = c(2, 1), guides = "collect") +
   plot_annotation(
     title    = "GMITS Synthetic Validation — Parameter Recovery",
     subtitle = paste0(
-      "Top: black = true ODE, blue = GMITS fit + 3-step forecast. ",
-      "Bottom: (GMITS - true) / true.\n",
-      "Dotted line = forecast boundary; both bottom panels use the same y scale."
+      "Top: black = true ODE, blue = GMITS fit + 3-step forecast ",
+      "(b = 5, x0[1] = 8, irregular grid).\n",
+      "Bottom: (GMITS - true) / true, same y scale in both panels. ",
+      "Dotted line = forecast boundary."
     )
   )
 ```
@@ -193,10 +208,9 @@ p_values / p_error +
 **Implementation note.** An earlier version of this page attributed
 a much larger growth-phase underprediction to the background value;
 most of it was an implementation error, corrected on 2026-10-13
-([revision history](GMITS_Research.html#revision-history)). With the corrected regression the
-growth scenario recovers $\hat a =$ `r round(r1$a, 3)` (true
-$-0.4$) and the decay scenario $\hat a =$ `r round(r2$a, 3)`
-(true $0.3$).
+([revision history](GMITS_Research.html#revision-history)). With the corrected regression GMITS
+recovers every $a$ in the table to within
+`r round(100 * max(abs(1 - synth_res$shrink_irr)), 1)`%.
 
 **Remaining limitation — background-value bias.**
 The residual gaps are the approximation bias of the GM(1,1) family. The
@@ -214,13 +228,29 @@ the resulting forecast error differs: a growth forecast grows too slowly
 (underprediction) and a decay forecast decays too slowly
 (overprediction).
 
-The decay scenario looks better in the figure for reasons of design, not
-because GMITS handles decline better. Its $|a|$ is smaller (0.3 vs.
-0.4), and on this irregular grid (intervals 2, 2, 3, 3 days) the
-information about a decay sits mainly in the short early intervals,
-whereas for growth it sits in the long late intervals. On an equally
-spaced grid with the same $|a|$, both directions shrink $|\hat a|$ by
-exactly the same factor.
+The 2 × 2 design separates the three influences on this bias:
+
+- **Speed:** a larger $|a|$ shrinks $|\hat a|$ more in both directions
+  (equal grid: `r sprintf("%.3f", synth_res$shrink_eq[synth_res$a == 0.3])`
+  at $|a| = 0.3$ vs.
+  `r sprintf("%.3f", synth_res$shrink_eq[synth_res$a == 0.4])` at
+  $|a| = 0.4$), and the forecast error grows with the horizon.
+- **Direction:** on the equally spaced grid growth and decay are shrunk by
+  exactly the same factor, which matches the theoretical value, so the
+  direction of the trend on its own does not matter.
+- **Spacing:** on the irregular grid (intervals 2, 2, 3, 3 days) growth is
+  shrunk more than decay
+  (`r sprintf("%.3f", synth_res$shrink_irr[synth_res$a == -0.3])` vs.
+  `r sprintf("%.3f", synth_res$shrink_irr[synth_res$a == 0.3])` at
+  $|a| = 0.3$). A growing $x^{(1)}$ changes most over the long late
+  intervals, where the trapezoid error is largest, whereas a decaying
+  $x^{(1)}$ changes most over the short early ones. Uneven reporting
+  intervals therefore matter more when an outbreak is accelerating.
+
+On a linear axis the decay fits look almost perfect only because the
+counts approach zero; the relative-error panel shows the forecasts
+drifting upwards by up to
+`r round(max(synth_res$fc_err_3))`% after three steps.
 
 This limitation is well-known in the grey system literature (Liu, 2025;
 Liu & Deng, 2000) and is the motivation for optimising the background
