@@ -198,19 +198,29 @@ growth scenario recovers $\hat a =$ `r round(r1$a, 3)` (true
 $-0.4$) and the decay scenario $\hat a =$ `r round(r2$a, 3)`
 (true $0.3$).
 
-**Remaining limitation — background-value bias in the growth phase.**
-The residual gap in the growth scenario is the approximation bias of the
-GM(1,1) family. The background value
-$z_{k} = \frac{1}{2}(x^{(1)}_{k} + x^{(1)}_{k-1})$
-approximates the interval mean of $x^{(1)}$ by the arithmetic mean of its
-endpoints. For an exponentially growing $x^{(1)}$ (convex curve), the
-arithmetic mean of the endpoints *understates* the true integral mean,
-causing the model to estimate a slower growth rate than the truth. The bias
-scales with $|a| \times \Delta t$: here $|a| \times \overline{\Delta t}
-\approx 1$, which gives roughly a 10% underestimate of $|a|$; at
-$|a| \times \Delta t \approx 0.1$ it is below 1%. In the decay scenario
-$x^{(1)}$ is concave, the bias acts in the opposite direction, and the
-absolute magnitude is smaller.
+**Remaining limitation — background-value bias.**
+The residual gaps are the approximation bias of the GM(1,1) family. The
+background value $z_{k} = \frac{1}{2}(x^{(1)}_{k} + x^{(1)}_{k-1})$
+replaces the interval mean of $x^{(1)}$ by the mean of its endpoints.
+When $x^{(1)}$ is curved this misstates the interval mean: in a growth
+phase $x^{(1)}$ is convex and the endpoint mean *overstates* it; in a
+decay phase $x^{(1)}$ is concave and the endpoint mean *understates* it.
+In both cases the error is proportional to the distance of $x^{(1)}$
+from its asymptote $b/a$, so the regression slope is attenuated and
+$|\hat a|$ is pulled towards zero by the factor
+$1 / [(h/2)\coth(h/2)]$ with $h = |a|\,\Delta t$, whatever the sign of
+$a$: about 8% at $h = 1$ and under 0.1% at $h = 0.1$. Only the sign of
+the resulting forecast error differs: a growth forecast grows too slowly
+(underprediction) and a decay forecast decays too slowly
+(overprediction).
+
+The decay scenario looks better in the figure for reasons of design, not
+because GMITS handles decline better. Its $|a|$ is smaller (0.3 vs.
+0.4), and on this irregular grid (intervals 2, 2, 3, 3 days) the
+information about a decay sits mainly in the short early intervals,
+whereas for growth it sits in the long late intervals. On an equally
+spaced grid with the same $|a|$, both directions shrink $|\hat a|$ by
+exactly the same factor.
 
 This limitation is well-known in the grey system literature (Liu, 2025;
 Liu & Deng, 2000) and is the motivation for optimising the background

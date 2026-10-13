@@ -767,25 +767,37 @@ class="math inline">\(\hat a =\)</span> -0.357 (true <span
 class="math inline">\(-0.4\)</span>) and the decay scenario <span
 class="math inline">\(\hat a =\)</span> 0.293 (true <span
 class="math inline">\(0.3\)</span>).</p>
-<p><strong>Remaining limitation — background-value bias in the growth
-phase.</strong> The residual gap in the growth scenario is the
-approximation bias of the GM(1,1) family. The background value <span
-class="math inline">\(z_{k} = \frac{1}{2}(x^{(1)}_{k} +
-x^{(1)}_{k-1})\)</span> approximates the interval mean of <span
-class="math inline">\(x^{(1)}\)</span> by the arithmetic mean of its
-endpoints. For an exponentially growing <span
-class="math inline">\(x^{(1)}\)</span> (convex curve), the arithmetic
-mean of the endpoints <em>understates</em> the true integral mean,
-causing the model to estimate a slower growth rate than the truth. The
-bias scales with <span class="math inline">\(|a| \times \Delta
-t\)</span>: here <span class="math inline">\(|a| \times \overline{\Delta
-t}
-\approx 1\)</span>, which gives roughly a 10% underestimate of <span
-class="math inline">\(|a|\)</span>; at <span class="math inline">\(|a|
-\times \Delta t \approx 0.1\)</span> it is below 1%. In the decay
-scenario <span class="math inline">\(x^{(1)}\)</span> is concave, the
-bias acts in the opposite direction, and the absolute magnitude is
-smaller.</p>
+<p><strong>Remaining limitation — background-value bias.</strong> The
+residual gaps are the approximation bias of the GM(1,1) family. The
+background value <span class="math inline">\(z_{k} =
+\frac{1}{2}(x^{(1)}_{k} + x^{(1)}_{k-1})\)</span> replaces the interval
+mean of <span class="math inline">\(x^{(1)}\)</span> by the mean of its
+endpoints. When <span class="math inline">\(x^{(1)}\)</span> is curved
+this misstates the interval mean: in a growth phase <span
+class="math inline">\(x^{(1)}\)</span> is convex and the endpoint mean
+<em>overstates</em> it; in a decay phase <span
+class="math inline">\(x^{(1)}\)</span> is concave and the endpoint mean
+<em>understates</em> it. In both cases the error is proportional to the
+distance of <span class="math inline">\(x^{(1)}\)</span> from its
+asymptote <span class="math inline">\(b/a\)</span>, so the regression
+slope is attenuated and <span class="math inline">\(|\hat a|\)</span> is
+pulled towards zero by the factor <span class="math inline">\(1 /
+[(h/2)\coth(h/2)]\)</span> with <span class="math inline">\(h =
+|a|\,\Delta t\)</span>, whatever the sign of <span
+class="math inline">\(a\)</span>: about 8% at <span
+class="math inline">\(h = 1\)</span> and under 0.1% at <span
+class="math inline">\(h = 0.1\)</span>. Only the sign of the resulting
+forecast error differs: a growth forecast grows too slowly
+(underprediction) and a decay forecast decays too slowly
+(overprediction).</p>
+<p>The decay scenario looks better in the figure for reasons of design,
+not because GMITS handles decline better. Its <span
+class="math inline">\(|a|\)</span> is smaller (0.3 vs. 0.4), and on this
+irregular grid (intervals 2, 2, 3, 3 days) the information about a decay
+sits mainly in the short early intervals, whereas for growth it sits in
+the long late intervals. On an equally spaced grid with the same <span
+class="math inline">\(|a|\)</span>, both directions shrink <span
+class="math inline">\(|\hat a|\)</span> by exactly the same factor.</p>
 <p>This limitation is well-known in the grey system literature (Liu,
 2025; Liu &amp; Deng, 2000) and is the motivation for optimising the
 background coefficient <span class="math inline">\(\alpha\)</span>

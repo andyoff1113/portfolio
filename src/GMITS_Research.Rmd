@@ -201,19 +201,29 @@ growth scenario recovers $\hat a =$ `r round(r1$a, 3)` (true
 $-0.4$) and the decay scenario $\hat a =$ `r round(r2$a, 3)`
 (true $0.3$).
 
-**Remaining limitation — background-value bias in the growth phase.**
-The residual gap in the growth scenario is the approximation bias of the
-GM(1,1) family. The background value
-$z_{k} = \frac{1}{2}(x^{(1)}_{k} + x^{(1)}_{k-1})$
-approximates the interval mean of $x^{(1)}$ by the arithmetic mean of its
-endpoints. For an exponentially growing $x^{(1)}$ (convex curve), the
-arithmetic mean of the endpoints *understates* the true integral mean,
-causing the model to estimate a slower growth rate than the truth. The bias
-scales with $|a| \times \Delta t$: here $|a| \times \overline{\Delta t}
-\approx 1$, which gives roughly a 10% underestimate of $|a|$; at
-$|a| \times \Delta t \approx 0.1$ it is below 1%. In the decay scenario
-$x^{(1)}$ is concave, the bias acts in the opposite direction, and the
-absolute magnitude is smaller.
+**Remaining limitation — background-value bias.**
+The residual gaps are the approximation bias of the GM(1,1) family. The
+background value $z_{k} = \frac{1}{2}(x^{(1)}_{k} + x^{(1)}_{k-1})$
+replaces the interval mean of $x^{(1)}$ by the mean of its endpoints.
+When $x^{(1)}$ is curved this misstates the interval mean: in a growth
+phase $x^{(1)}$ is convex and the endpoint mean *overstates* it; in a
+decay phase $x^{(1)}$ is concave and the endpoint mean *understates* it.
+In both cases the error is proportional to the distance of $x^{(1)}$
+from its asymptote $b/a$, so the regression slope is attenuated and
+$|\hat a|$ is pulled towards zero by the factor
+$1 / [(h/2)\coth(h/2)]$ with $h = |a|\,\Delta t$, whatever the sign of
+$a$: about 8% at $h = 1$ and under 0.1% at $h = 0.1$. Only the sign of
+the resulting forecast error differs: a growth forecast grows too slowly
+(underprediction) and a decay forecast decays too slowly
+(overprediction).
+
+The decay scenario looks better in the figure for reasons of design, not
+because GMITS handles decline better. Its $|a|$ is smaller (0.3 vs.
+0.4), and on this irregular grid (intervals 2, 2, 3, 3 days) the
+information about a decay sits mainly in the short early intervals,
+whereas for growth it sits in the long late intervals. On an equally
+spaced grid with the same $|a|$, both directions shrink $|\hat a|$ by
+exactly the same factor.
 
 This limitation is well-known in the grey system literature (Liu, 2025;
 Liu & Deng, 2000) and is the motivation for optimising the background
@@ -613,7 +623,7 @@ general; the comparison is meant to show which errors dominate.
 
 ## Revision history {#revision-history}
 
-Only changes that affect reported results are listed.
+Only changes that affect reported results or their interpretation are listed.
 
 | Date | Change | Effect on results |
 | :--- | :--- | :--- |
@@ -621,3 +631,4 @@ Only changes that affect reported results are listed.
 | 2026-10-13 | Corrected the `gmits()` regression. Integrating $dx^{(1)}/dt + a x^{(1)} = b$ over each interval gives $x^{(0)}_{k} = -a z_{k} + b$; the previous code regressed on $(-z_{k}\Delta t_{k}, \Delta t_{k})$, which shrank $(\hat a, \hat b)$ by $1/\Delta t$ whenever reporting intervals were not one day (and could flip the sign of $\hat a$ on irregular grids). All GMITS pages now load one shared function file. | Synthetic growth scenario: $\hat a$ −0.116 → −0.357 (true −0.4). Listeria (n = 6) MAPE 90.25% → 45.45% (exp. regression 50.20%). Bongkrek (n = 4) MAPE 81.19% → 58.05% (exp. regression 64.47%). With 4 and 1 verifiable steps, these do not establish that either method is more accurate. |
 | 2026-10-14 | Replaced the real-data evaluation with real-time snapshots of the 2022 England mpox outbreak (person-to-person transmission; reporting-triangle snapshots at six growth-phase forecast origins, weekly counts, n = 5). The right-truncation section now compares reported, ×1.5-adjusted and backfilled (oracle) inputs instead of fixed scaling factors. The Bongkrek and Listeria analyses remain on their own pages as common-source examples. | New headline results (1 week ahead, 6 snapshots): GMITS MAPE 59.2% on reported input, 17.2% on oracle input; exponential regression 35.6%. 95% PI coverage 33% (reported) and 67% (oracle). Only 21–47% of the most recent week had been reported at each snapshot. |
 | 2026-10-14 | Added a delay-based nowcast of the truncated input (stage 1: point correction using the authors' real-time Weibull reporting-delay estimates; days with less than 50% expected reporting imputed from the rest of the week) and fitted the exponential regression to every input, not only the reported one. | One week ahead, MAPE GMITS vs. exponential regression: reported 59.2% vs. 35.6%, nowcast 27.8% vs. 30.3%, oracle 17.2% vs. 91.4%. Two weeks ahead on nowcast input: 28.0% vs. 82.1%. The nowcast raises the reported share of the latest week from 21–47% to 45–91%. |
+| 2026-10-14 | Corrected the explanation of the background-value bias. The earlier text said the endpoint mean *understates* the interval mean of a convex $x^{(1)}$ and that the bias runs in the opposite direction and is smaller in the decay phase. In fact the endpoint mean overstates it for a convex curve, and in both phases the bias attenuates $\lvert\hat a\rvert$ by the same factor for a given $\lvert a\rvert\,\Delta t$; only the sign of the forecast error differs. The decay scenario's better fit comes from its smaller $\lvert a\rvert$ and the irregular grid. | No numbers changed. |
