@@ -2,7 +2,7 @@
 title: "2011 Listeria Outbreak"
 subtitle: "Early-Stage Outbreak Forecasting with GMITS"
 author: "Andy Chu"
-date: "2026-05-23"
+date: "2026-05-23 (last updated 2026-10-13)"
 ---
 
 ```{r setup, include=FALSE}
@@ -17,10 +17,8 @@ for (pkg in c("tidyverse", "kableExtra")) {
 ## Functions {-}
 
 All pages load the same function file, `R/gmits_functions.R`.
-The `gmits()` regression was corrected on 2026-10-13: the previous
-version multiplied the design matrix by $\Delta t$ a second time, which
-shrank $(\hat a, \hat b)$ by $1/\Delta t$ whenever reporting intervals
-were not one day.
+The regression in `gmits()` was corrected on 2026-10-13; see the
+[revision history](GMITS_Research.html#revision-history).
 
 ```{r functions, file = "R/gmits_functions.R"}
 ```
@@ -141,15 +139,13 @@ ggplot(df_synth_plot, aes(t, value, color = type, linetype = Forecast)) +
   )
 ```
 
-**Implementation note (corrected 2026-10-13).**
-An earlier version of this page reported strong underprediction in the
-growth scenario and attributed it entirely to the background-value
-approximation. Most of that gap was an implementation error: the
-regression multiplied the design matrix by $\Delta t$ a second time,
-which shrank $(\hat a, \hat b)$ by $1/\Delta t$ (previously
-$\hat a = -0.116$ for a true $a = -0.4$). With the corrected regression
-the growth scenario recovers $\hat a =$ `r round(r1$a, 3)` and the decay
-scenario $\hat a =$ `r round(r2$a, 3)`.
+**Implementation note.** An earlier version of this page attributed
+a much larger growth-phase underprediction to the background value;
+most of it was an implementation error, corrected on 2026-10-13
+([revision history](GMITS_Research.html#revision-history)). With the corrected regression the
+growth scenario recovers $\hat a =$ `r round(r1$a, 3)` (true
+$-0.4$) and the decay scenario $\hat a =$ `r round(r2$a, 3)`
+(true $0.3$).
 
 **Remaining limitation — background-value bias in the growth phase.**
 The residual gap in the growth scenario is the approximation bias of the

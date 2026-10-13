@@ -11,7 +11,6 @@
 
 <meta name="author" content="Andy Chu" />
 
-<meta name="date" content="2026-05-23" />
 
 <title>GMITS: Grey Model for Irregular Time Series</title>
 
@@ -358,7 +357,7 @@ Series</h1>
 <h3 class="subtitle">Research Overview — Early-Stage Outbreak
 Forecasting</h3>
 <h4 class="author">Andy Chu</h4>
-<h4 class="date">2026-05-23</h4>
+<h4 class="date">2026-05-23 (last updated 2026-10-13)</h4>
 
 </div>
 
@@ -373,12 +372,9 @@ for the standalone write-ups of each.</p>
 <div id="functions" class="section level2 unnumbered">
 <h2 class="unnumbered">Functions</h2>
 <p>All pages load the same function file,
-<code>R/gmits_functions.R</code>. The <code>gmits()</code> regression
-was corrected on 2026-10-13: the previous version multiplied the design
-matrix by <span class="math inline">\(\Delta t\)</span> a second time,
-which shrank <span class="math inline">\((\hat a, \hat b)\)</span> by
-<span class="math inline">\(1/\Delta t\)</span> whenever reporting
-intervals were not one day.</p>
+<code>R/gmits_functions.R</code>. The regression in <code>gmits()</code>
+was corrected on 2026-10-13; see the <a
+href="#revision-history">revision history</a>.</p>
 <pre class="r"><code># Shared GMITS functions for all portfolio pages.
 # Single source of truth: pages load this file via a knitr `file =` chunk,
 # and external analyses (e.g. RA/mpox/gmits_england) source() it.
@@ -709,19 +705,14 @@ ggplot(df_synth_plot, aes(t, value, color = type, linetype = Forecast)) +
     x = &quot;Time (days from t₀)&quot;, y = &quot;Period incidence&quot;
   )</code></pre>
 <p><img src="GMITS_Research_files/figure-html/plot-synth-validate-1.png" width="672" /></p>
-<p><strong>Implementation note (corrected 2026-10-13).</strong> An
-earlier version of this page reported strong underprediction in the
-growth scenario and attributed it entirely to the background-value
-approximation. Most of that gap was an implementation error: the
-regression multiplied the design matrix by <span
-class="math inline">\(\Delta t\)</span> a second time, which shrank
-<span class="math inline">\((\hat a, \hat b)\)</span> by <span
-class="math inline">\(1/\Delta t\)</span> (previously <span
-class="math inline">\(\hat a = -0.116\)</span> for a true <span
-class="math inline">\(a = -0.4\)</span>). With the corrected regression
-the growth scenario recovers <span class="math inline">\(\hat a
-=\)</span> -0.357 and the decay scenario <span
-class="math inline">\(\hat a =\)</span> 0.293.</p>
+<p><strong>Implementation note.</strong> An earlier version of this page
+attributed a much larger growth-phase underprediction to the background
+value; most of it was an implementation error, corrected on 2026-10-13
+(<a href="#revision-history">revision history</a>). With the corrected
+regression the growth scenario recovers <span class="math inline">\(\hat
+a =\)</span> -0.357 (true <span class="math inline">\(-0.4\)</span>) and
+the decay scenario <span class="math inline">\(\hat a =\)</span> 0.293
+(true <span class="math inline">\(0.3\)</span>).</p>
 <p><strong>Remaining limitation — background-value bias in the growth
 phase.</strong> The residual gap in the growth scenario is the
 approximation bias of the GM(1,1) family. The background value <span
@@ -1376,6 +1367,51 @@ Exp. Reg.
 </tr>
 </tbody>
 </table>
+<hr />
+<div id="revision-history" class="section level2">
+<h2>Revision history</h2>
+<p>Only changes that affect reported results are listed.</p>
+<table>
+<colgroup>
+<col width="33%" />
+<col width="33%" />
+<col width="33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Date</th>
+<th align="left">Change</th>
+<th align="left">Effect on results</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">2026-05-23</td>
+<td align="left">Initial analysis</td>
+<td align="left">—</td>
+</tr>
+<tr class="even">
+<td align="left">2026-10-13</td>
+<td align="left">Corrected the <code>gmits()</code> regression.
+Integrating <span class="math inline">\(dx^{(1)}/dt + a x^{(1)} =
+b\)</span> over each interval gives <span
+class="math inline">\(x^{(0)}_{k} = -a z_{k} + b\)</span>; the previous
+code regressed on <span class="math inline">\((-z_{k}\Delta t_{k},
+\Delta t_{k})\)</span>, which shrank <span class="math inline">\((\hat
+a, \hat b)\)</span> by <span class="math inline">\(1/\Delta t\)</span>
+whenever reporting intervals were not one day (and could flip the sign
+of <span class="math inline">\(\hat a\)</span> on irregular grids). All
+GMITS pages now load one shared function file.</td>
+<td align="left">Synthetic growth scenario: <span
+class="math inline">\(\hat a\)</span> −0.116 → −0.357 (true −0.4).
+Listeria (n = 6) MAPE 90.25% → 45.45% (exp. regression 50.20%). Bongkrek
+(n = 4) MAPE 81.19% → 58.05% (exp. regression 64.47%). With 4 and 1
+verifiable steps, these do not establish that either method is more
+accurate.</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 
 

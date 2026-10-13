@@ -2,7 +2,7 @@
 title: "GMITS: Grey Model for Irregular Time Series"
 subtitle: "Research Overview — Early-Stage Outbreak Forecasting"
 author: "Andy Chu"
-date: "2026-05-23"
+date: "2026-05-23 (last updated 2026-10-13)"
 ---
 
 ```{r setup, include=FALSE}
@@ -25,10 +25,8 @@ write-ups of each.
 ## Functions {-}
 
 All pages load the same function file, `R/gmits_functions.R`.
-The `gmits()` regression was corrected on 2026-10-13: the previous
-version multiplied the design matrix by $\Delta t$ a second time, which
-shrank $(\hat a, \hat b)$ by $1/\Delta t$ whenever reporting intervals
-were not one day.
+The regression in `gmits()` was corrected on 2026-10-13; see the
+[revision history](#revision-history).
 
 ```{r functions, file = "R/gmits_functions.R"}
 ```
@@ -149,15 +147,13 @@ ggplot(df_synth_plot, aes(t, value, color = type, linetype = Forecast)) +
   )
 ```
 
-**Implementation note (corrected 2026-10-13).**
-An earlier version of this page reported strong underprediction in the
-growth scenario and attributed it entirely to the background-value
-approximation. Most of that gap was an implementation error: the
-regression multiplied the design matrix by $\Delta t$ a second time,
-which shrank $(\hat a, \hat b)$ by $1/\Delta t$ (previously
-$\hat a = -0.116$ for a true $a = -0.4$). With the corrected regression
-the growth scenario recovers $\hat a =$ `r round(r1$a, 3)` and the decay
-scenario $\hat a =$ `r round(r2$a, 3)`.
+**Implementation note.** An earlier version of this page attributed
+a much larger growth-phase underprediction to the background value;
+most of it was an implementation error, corrected on 2026-10-13
+([revision history](#revision-history)). With the corrected regression the
+growth scenario recovers $\hat a =$ `r round(r1$a, 3)` (true
+$-0.4$) and the decay scenario $\hat a =$ `r round(r2$a, 3)`
+(true $0.3$).
 
 **Remaining limitation — background-value bias in the growth phase.**
 The residual gap in the growth scenario is the approximation bias of the
@@ -607,3 +603,14 @@ bind_rows(
   pack_rows("Bongkrek (1 verifiable step)", 1, 2) |>
   pack_rows("Listeria 2011 (4 verifiable steps)", 3, 4)
 ```
+
+---
+
+## Revision history {#revision-history}
+
+Only changes that affect reported results are listed.
+
+| Date | Change | Effect on results |
+| :--- | :--- | :--- |
+| 2026-05-23 | Initial analysis | — |
+| 2026-10-13 | Corrected the `gmits()` regression. Integrating $dx^{(1)}/dt + a x^{(1)} = b$ over each interval gives $x^{(0)}_{k} = -a z_{k} + b$; the previous code regressed on $(-z_{k}\Delta t_{k}, \Delta t_{k})$, which shrank $(\hat a, \hat b)$ by $1/\Delta t$ whenever reporting intervals were not one day (and could flip the sign of $\hat a$ on irregular grids). All GMITS pages now load one shared function file. | Synthetic growth scenario: $\hat a$ −0.116 → −0.357 (true −0.4). Listeria (n = 6) MAPE 90.25% → 45.45% (exp. regression 50.20%). Bongkrek (n = 4) MAPE 81.19% → 58.05% (exp. regression 64.47%). With 4 and 1 verifiable steps, these do not establish that either method is more accurate. |
