@@ -149,3 +149,12 @@ truncation_adjust <- function(count, n_recent = 1, scale_factor = 1.5) {
   adj
 }
 
+# Delay-based nowcast of right-truncated daily counts (stage 1: point
+# correction only). p_report is the probability that a case from that day
+# has been reported by the snapshot, i.e. the reporting-delay CDF at the
+# elapsed lag. Days with p_report >= p_min are inflated as obs / p_report;
+# days below p_min (inflation factor > 1 / p_min) are returned as NA so the
+# caller can treat them as missing rather than divide near-zero counts.
+nowcast_inflate <- function(obs, p_report, p_min = 0.5) {
+  ifelse(p_report >= p_min, obs / p_report, NA_real_)
+}

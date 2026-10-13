@@ -193,11 +193,15 @@ the [Bongkrekic acid](Bongkrekic_Acid_2024.html) and
 
 The data come from the repository accompanying Overton et al. (2023),
 *Nowcasting the 2022 mpox outbreak in England* (arXiv:2302.09076),
-released under CC0. Two parts are used:
+released under CC0. Three parts are used:
 
 - **Ground truth:** daily cases by specimen date after all backfilling.
 - **Real-time snapshots:** the reporting triangle as it stood on day
   *T*, i.e. only the cases that had been reported by then.
+- **Reporting-delay distribution:** the Weibull parameters the authors
+  estimated from individual-level data with a right-truncation
+  correction, supplied with each snapshot (one set for ordinary days and
+  one for days affected by weekend processing).
 
 Dates are anonymised in the source, so the x-axis is a day index.
 Symptom-onset snapshots start after the peak, so the specimen-date series
@@ -213,6 +217,11 @@ truth_daily <- read_csv(
   show_col_types = FALSE
 )
 
+# Daily counts reported by day T, plus the probability that a case from
+# that day had been reported by T. For specimen dates the authors model
+# the cell probability for delay index dev as W(dev - 1) - W(dev - 2),
+# where W is the Weibull CDF; dev = T - origin + 1 is the latest observed
+# cell, so P(reported by T) = W(T - origin).
 snapshot_daily <- function(t_snap) {
   read_csv(
     file.path(
@@ -222,7 +231,13 @@ snapshot_daily <- function(t_snap) {
     show_col_types = FALSE
   ) |>
     group_by(origin) |>
-    summarise(n = sum(value, na.rm = TRUE), .groups = "drop")
+    summarise(
+      n = sum(value, na.rm = TRUE),
+      shape = first(var1),
+      scale = first(var2),
+      .groups = "drop"
+    ) |>
+    mutate(p_report = pweibull(t_snap - origin, shape, scale))
 }
 
 week_sum <- function(daily, week_ends) {
@@ -230,7 +245,23 @@ week_sum <- function(daily, week_ends) {
     sum(daily$n[daily$origin > e - 7 & daily$origin <= e])
   })
 }
+
+# Nowcast-adjusted weekly totals: inflate days with P(reported) >= 0.5;
+# days below that are treated as missing and filled with the mean of the
+# adjusted days in the same week.
+week_nowcast <- function(daily, week_ends, p_min = 0.5) {
+  daily <- daily |>
+    mutate(adj = nowcast_inflate(n, p_report, p_min))
+  sapply(week_ends, function(e) {
+    adj <- daily$adj[daily$origin > e - 7 & daily$origin <= e]
+    mean(adj, na.rm = TRUE) * 7
+  })
+}
 ```
+
+The adjustment uses only what was known on day *T*: the reported counts
+and the delay distribution estimated at that time. The 0.5 threshold
+(inflation factor at most 2) was fixed before looking at the outcomes.
 
 ```{r plot-mpox-epicurve, fig.height = 3.5}
 ggplot(truth_daily |> filter(origin <= 160), aes(origin, n)) +
@@ -255,8 +286,8 @@ ggplot(truth_daily |> filter(origin <= 160), aes(origin, n)) +
   )
 ```
 
-How incomplete were the most recent data at each snapshot? The table
-compares the last week as reported on day *T* with its eventual total.
+How incomplete were the most recent data at each snapshot, and how much
+does the nowcast recover?
 
 ```{r mpox-completeness}
 completeness <- tibble(snapshot = snapshots) |>
@@ -264,107 +295,119 @@ completeness <- tibble(snapshot = snapshots) |>
     reported = map_dbl(snapshot, function(t) {
       week_sum(snapshot_daily(t), t)
     }),
+    nowcast = map_dbl(snapshot, function(t) {
+      week_nowcast(snapshot_daily(t), t)
+    }),
     final = map_dbl(snapshot, function(t) week_sum(truth_daily, t)),
-    pct = 100 * reported / final
+    pct = 100 * reported / final,
+    pct_nowcast = 100 * nowcast / final
   )
 
 completeness |>
+  select(snapshot, reported, nowcast, final, pct, pct_nowcast) |>
   kable(
     digits = 1,
     col.names = c(
-      "Snapshot T", "Last week, reported by T",
-      "Last week, final", "Reported (%)"
+      "Snapshot T", "Last week, reported", "Last week, nowcast",
+      "Last week, final", "Reported (% of final)",
+      "Nowcast (% of final)"
     ),
     caption = "Right truncation in the most recent week"
   ) |>
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-At every forecast origin only
+At the forecast origins only
 `r round(min(completeness$pct))`–`r round(max(completeness$pct))`% of the
-most recent week had been reported.
+most recent week had been reported. The nowcast raises this to
+`r round(min(completeness$pct_nowcast))`–`r round(max(completeness$pct_nowcast))`%:
+it recovers part of the gap but still falls short, mainly because cases
+from the last two to three days had barely been reported and reporting at
+three to four days' delay was slower than the parametric delay
+distribution implies.
 
 ---
 
 # Early-Stage Forecasting
 
 At each snapshot the last 5 weeks are used as input (n = 5 points,
-Δt = 7 days) and the next 2 weeks are forecast. Three inputs are compared:
+Δt = 7 days) and the next 2 weeks are forecast. GMITS and the
+exponential regression baseline are both fitted to four versions of the
+input:
 
 - **Reported:** counts as available on day *T* (right-truncated).
-- **Reported, last week ×1.5:** a simple truncation adjustment.
+- **Reported ×1.5:** the most recent week scaled by a fixed factor.
+- **Nowcast:** delay-based adjustment described above.
 - **Oracle:** the backfilled counts for the same weeks, i.e. what a
-  perfect truncation correction would give.
-
-The exponential regression baseline is fitted to the reported input.
+  perfect truncation correction would give. Not available in real time;
+  shown as a reference.
 
 ```{r forecast-mpox}
 n_fit_m <- 5
 n_ahead_m <- 2
+input_levels <- c("Reported", "Reported ×1.5", "Nowcast", "Oracle")
+model_cols <- c("GMITS" = "#2a78d6", "Exp. regression" = "#eb6834")
 
 run_snapshot <- function(t_snap) {
   fit_ends <- t_snap - 7 * rev(seq_len(n_fit_m) - 1)
   fut_ends <- t_snap + 7 * seq_len(n_ahead_m)
   fit_dates <- as.Date("2022-01-01") + fit_ends
+  all_dates <- as.Date("2022-01-01") + c(fit_ends, fut_ends)
 
-  obs <- week_sum(snapshot_daily(t_snap), fit_ends)
+  daily <- snapshot_daily(t_snap)
+  obs <- week_sum(daily, fit_ends)
   inputs <- list(
-    "GMITS (reported)" = obs,
-    "GMITS (reported, ×1.5)" = truncation_adjust(obs, 1, 1.5),
-    "GMITS (oracle)" = week_sum(truth_daily, fit_ends)
+    "Reported" = obs,
+    "Reported ×1.5" = truncation_adjust(obs, 1, 1.5),
+    "Nowcast" = week_nowcast(daily, fit_ends),
+    "Oracle" = week_sum(truth_daily, fit_ends)
   )
 
-  fc <- imap(inputs, function(x, nm) {
-    res <- gmits_boot(x, fit_dates, n_boot = 1000, n_ahead = n_ahead_m)
-    tibble(
-      method = nm,
-      input = c(x, rep(NA, n_ahead_m)),
-      point = res$point,
-      lower = res$lower,
-      upper = res$upper
-    )
-  })
-
-  # exp_reg() drops zero weeks, so rebuild fitted values on the full grid
-  er <- exp_reg(obs, fit_dates)
-  t_all <- as.numeric(
-    as.Date("2022-01-01") + c(fit_ends, fut_ends) - er$date[1]
-  )
-  fc$exp_reg <- tibble(
-    method = "Exp. regression (reported)",
-    input = c(obs, rep(NA, n_ahead_m)),
-    point = exp(er$alpha + er$beta * t_all),
-    lower = NA_real_,
-    upper = NA_real_
-  )
-
-  bind_rows(fc) |>
-    group_by(method) |>
-    mutate(
-      step = seq_len(n()) - n_fit_m,
-      week_end = c(fit_ends, fut_ends),
-      truth = week_sum(truth_daily, c(fit_ends, fut_ends))
+  imap_dfr(inputs, function(x, nm) {
+    g <- gmits_boot(x, fit_dates, n_boot = 1000, n_ahead = n_ahead_m)
+    # exp_reg() drops zero weeks, so rebuild fitted values on the full grid
+    er <- exp_reg(x, fit_dates)
+    t_all <- as.numeric(all_dates - er$date[1])
+    bind_rows(
+      tibble(
+        model = "GMITS", point = g$point,
+        lower = g$lower, upper = g$upper
+      ),
+      tibble(
+        model = "Exp. regression",
+        point = exp(er$alpha + er$beta * t_all),
+        lower = NA_real_, upper = NA_real_
+      )
     ) |>
-    ungroup() |>
+      mutate(
+        input_type = nm,
+        input = rep(c(x, rep(NA, n_ahead_m)), 2),
+        step = rep(seq_len(n_fit_m + n_ahead_m) - n_fit_m, 2),
+        week_end = rep(c(fit_ends, fut_ends), 2),
+        truth = rep(week_sum(truth_daily, c(fit_ends, fut_ends)), 2)
+      )
+  }) |>
     mutate(snapshot = t_snap)
 }
 
-mpox_fc <- map_dfr(snapshots, run_snapshot)
-
-method_cols <- c(
-  "GMITS (reported)" = "#2a78d6",
-  "Exp. regression (reported)" = "#eb6834",
-  "GMITS (oracle)" = "#1baf7a",
-  "GMITS (reported, ×1.5)" = "#eda100"
-)
+mpox_fc <- map_dfr(snapshots, run_snapshot) |>
+  mutate(
+    input_type = factor(input_type, levels = input_levels),
+    model = factor(model, levels = names(model_cols))
+  )
 ```
 
+The figure shows both models fitted to the nowcast input, against the
+counts as reported (crosses) and after adjustment (dots).
+
 ```{r plot-mpox-forecast, fig.height = 7}
-plot_methods <- c(
-  "GMITS (reported)", "GMITS (oracle)", "Exp. regression (reported)"
-)
-plot_df <- mpox_fc |> filter(method %in% plot_methods)
+plot_df <- mpox_fc |> filter(input_type == "Nowcast")
 truth_weeks <- mpox_fc |> distinct(snapshot, week_end, truth, step)
+input_pts <- mpox_fc |>
+  filter(
+    model == "GMITS", step <= 0,
+    input_type %in% c("Reported", "Nowcast")
+  )
 
 ggplot() +
   geom_col(
@@ -372,20 +415,20 @@ ggplot() +
     aes(week_end, truth, alpha = step > 0),
     fill = "grey60", width = 5
   ) +
-  geom_point(
-    data = mpox_fc |> filter(method == "GMITS (reported)", step <= 0),
-    aes(week_end, input),
-    shape = 4, size = 2
-  ) +
   geom_ribbon(
     data = plot_df |> filter(step >= 0, !is.na(lower)),
-    aes(week_end, ymin = lower, ymax = upper, fill = method),
-    alpha = 0.18
+    aes(week_end, ymin = lower, ymax = upper),
+    fill = model_cols[["GMITS"]], alpha = 0.18
   ) +
   geom_line(
     data = plot_df,
-    aes(week_end, point, color = method),
+    aes(week_end, point, color = model),
     linewidth = 0.8
+  ) +
+  geom_point(
+    data = input_pts,
+    aes(week_end, input, shape = input_type),
+    size = 2
   ) +
   geom_vline(
     data = distinct(mpox_fc, snapshot),
@@ -393,9 +436,11 @@ ggplot() +
     linetype = "dashed", color = "grey40"
   ) +
   facet_wrap(~ snapshot, labeller = label_both, scales = "free_y") +
-  scale_color_manual(
-    values = method_cols, breaks = plot_methods,
-    aesthetics = c("color", "fill"), name = NULL
+  scale_color_manual(values = model_cols, name = NULL) +
+  scale_shape_manual(
+    values = c("Reported" = 4, "Nowcast" = 16),
+    labels = c("Reported" = "reported at T", "Nowcast" = "nowcast"),
+    name = NULL
   ) +
   scale_alpha_manual(
     values = c("FALSE" = 0.45, "TRUE" = 0.85),
@@ -406,63 +451,61 @@ ggplot() +
   theme_minimal() +
   theme(legend.position = "bottom", legend.box = "vertical") +
   labs(
-    title = "England mpox — 2-week GMITS forecasts at six snapshots",
+    title = "England mpox — 2-week forecasts from nowcast-adjusted input",
     subtitle = paste0(
-      "× = counts as reported at the snapshot; bars = final counts
-",
-      "ribbons = 95% bootstrap PI (clipped at 0)"
+      "Bars = final counts; crosses = reported at T; ",
+      "dots = nowcast-adjusted\n",
+      "Ribbon = GMITS 95% bootstrap PI (clipped at 0)"
     ),
     x = "Week ending (day index)", y = "Weekly cases"
   )
 ```
 
-With the truncated input, the most recent week drags the fitted curve
-down and GMITS forecasts a near-flat trajectory. With the oracle input
-the same model tracks the growth closely one week ahead, but at the
-later snapshots (T = 90–100), where growth was already slowing towards
-the peak, the constant-rate extrapolation overshoots two weeks ahead.
-
 ---
 
-# Right Truncation
+# GMITS vs. Exponential Regression on Truncated Data
 
-The gap between the reported and oracle inputs isolates the error caused
-by right truncation. The figure shows the one-week-ahead absolute
-percentage error for every input at every snapshot.
+The question that matters in real time is how each model performs on the
+data actually available on day *T*. The figure shows the one-week-ahead
+absolute percentage error at every snapshot for each input; the bar marks
+the mean over snapshots.
 
-```{r plot-truncation, fig.height = 3.8}
+```{r plot-truncation, fig.height = 4.2}
 ape_df <- mpox_fc |>
   filter(step == 1) |>
-  mutate(
-    ape = 100 * abs(point - truth) / truth,
-    method = factor(method, levels = names(method_cols))
-  )
+  mutate(ape = 100 * abs(point - truth) / truth)
 
-ggplot(ape_df, aes(factor(snapshot), ape, color = method)) +
-  geom_point(size = 3, position = position_dodge(width = 0.55)) +
-  scale_color_manual(values = method_cols, name = NULL) +
+ape_mean <- ape_df |>
+  group_by(input_type, model) |>
+  summarise(ape = mean(ape), .groups = "drop")
+
+ggplot(ape_df, aes(input_type, ape, color = model)) +
+  geom_point(
+    position = position_jitterdodge(
+      jitter.width = 0.12, dodge.width = 0.6, seed = 1
+    ),
+    size = 2, alpha = 0.55
+  ) +
+  geom_crossbar(
+    data = ape_mean,
+    aes(ymin = ape, ymax = ape),
+    position = position_dodge(width = 0.6),
+    width = 0.5, linewidth = 0.6
+  ) +
+  geom_vline(xintercept = 3.5, linetype = "dotted", color = "grey50") +
+  annotate(
+    "text", x = 3.55, y = Inf, label = "not available\nin real time",
+    hjust = 0, vjust = 1.2, size = 3, color = "grey40"
+  ) +
+  scale_color_manual(values = model_cols, name = NULL) +
   theme_minimal() +
   theme(legend.position = "bottom") +
-  guides(color = guide_legend(nrow = 2)) +
   labs(
-    title = "One-week-ahead error by input",
-    subtitle = "Absolute percentage error against final counts",
-    x = "Snapshot T", y = "APE (%)"
+    title = "One-week-ahead error by input and model (6 snapshots)",
+    subtitle = "Points = snapshots; bar = mean absolute percentage error",
+    x = NULL, y = "APE (%)"
   )
 ```
-
-Scaling the last week by 1.5 removes only part of the error, because the
-real shortfall was a factor of roughly
-`r round(100 / max(completeness$pct), 1)`–`r round(100 / min(completeness$pct), 1)`.
-A delay-distribution based nowcast of the input is the natural next
-step.
-
----
-
-# Out-of-Sample Error Summary
-
-Errors are averaged over the six snapshots. Coverage is the share of
-snapshots whose final count fell inside the 95% bootstrap interval.
 
 ```{r error-summary}
 mpox_fc |>
@@ -471,36 +514,56 @@ mpox_fc |>
     ape = 100 * abs(point - truth) / truth,
     covered = truth >= lower & truth <= upper
   ) |>
-  group_by(method, step) |>
+  group_by(input_type, model, step) |>
   summarise(
     MAE = mean(abs(point - truth)),
     MAPE = mean(ape),
+    bias = median(point - truth),
     coverage = 100 * mean(covered),
-    width = mean(upper - lower),
     .groups = "drop"
   ) |>
-  mutate(method = factor(method, levels = names(method_cols))) |>
-  arrange(step, method) |>
+  arrange(step, input_type, model) |>
   mutate(step = paste(step, if_else(step == 1, "week", "weeks"))) |>
+  select(step, input_type, model, MAE, MAPE, bias, coverage) |>
   kable(
     digits = 1,
     col.names = c(
-      "Input / model", "Horizon", "MAE", "MAPE (%)",
-      "95% PI coverage (%)", "Mean PI width"
+      "Horizon", "Input", "Model", "MAE", "MAPE (%)",
+      "Median error", "GMITS 95% PI coverage (%)"
     ),
     caption = "England mpox: out-of-sample error over 6 snapshots (n = 5)"
   ) |>
-  kable_styling(bootstrap_options = c("striped", "hover"))
+  kable_styling(bootstrap_options = c("striped", "hover")) |>
+  collapse_rows(columns = 1:2, valign = "top")
 ```
 
-Three points stand out. First, with complete (oracle) input, GMITS
-forecasts one week ahead with a MAPE under 20% from only five weekly
-points. Second, on the input actually available in real time it does
-worse than the exponential regression, and right truncation, not the
-model form, is the dominant source of error. Third, with five points the
-bootstrap intervals are unreliable: coverage is well below the nominal
-95%, so the intervals should not be read as calibrated until the
-simulation study planned for this project has quantified their coverage.
+Four points stand out.
+
+- **On the data available in real time, the ranking depends on how
+  truncation is handled.** On the raw or ×1.5 input the exponential
+  regression is more accurate one week ahead. On the nowcast input the
+  two are similar one week ahead (MAPE 27.8% vs. 30.3%) and GMITS is
+  clearly better two weeks ahead (28.0% vs. 82.1%).
+- **GMITS improves steadily as the input becomes more complete**
+  (one-week MAPE 59% → 46% → 28% → 17% from reported to oracle). The
+  regression does not: it is least accurate on the complete oracle input
+  (91%). Its log-linear slope is dominated by the small counts at the
+  start of the window and overshoots (snapshots 75–85 in the figure
+  above); on truncated input the depressed final week flattens the slope
+  and partly cancels that overshoot. Its advantage on the raw reported
+  data is therefore two errors offsetting each other rather than
+  robustness to truncation.
+- **The simple nowcast closes about three quarters of the gap** in
+  GMITS's one-week error between reported and oracle input. The
+  remaining shortfall comes mainly from the last two to three days, which
+  a point correction cannot recover.
+- **The bootstrap intervals remain poorly calibrated** with five weekly
+  points (coverage 33–83% against a nominal 95%), so they should not be
+  read as calibrated until the planned simulation study has quantified
+  their coverage.
+
+Six snapshots from one outbreak are not enough to rank the two methods in
+general; the comparison is meant to show which errors dominate.
 
 ---
 
@@ -513,3 +576,4 @@ Only changes that affect reported results are listed.
 | 2026-05-23 | Initial analysis | — |
 | 2026-10-13 | Corrected the `gmits()` regression. Integrating $dx^{(1)}/dt + a x^{(1)} = b$ over each interval gives $x^{(0)}_{k} = -a z_{k} + b$; the previous code regressed on $(-z_{k}\Delta t_{k}, \Delta t_{k})$, which shrank $(\hat a, \hat b)$ by $1/\Delta t$ whenever reporting intervals were not one day (and could flip the sign of $\hat a$ on irregular grids). All GMITS pages now load one shared function file. | Synthetic growth scenario: $\hat a$ −0.116 → −0.357 (true −0.4). Listeria (n = 6) MAPE 90.25% → 45.45% (exp. regression 50.20%). Bongkrek (n = 4) MAPE 81.19% → 58.05% (exp. regression 64.47%). With 4 and 1 verifiable steps, these do not establish that either method is more accurate. |
 | 2026-10-14 | Replaced the real-data evaluation with real-time snapshots of the 2022 England mpox outbreak (person-to-person transmission; reporting-triangle snapshots at six growth-phase forecast origins, weekly counts, n = 5). The right-truncation section now compares reported, ×1.5-adjusted and backfilled (oracle) inputs instead of fixed scaling factors. The Bongkrek and Listeria analyses remain on their own pages as common-source examples. | New headline results (1 week ahead, 6 snapshots): GMITS MAPE 59.2% on reported input, 17.2% on oracle input; exponential regression 35.6%. 95% PI coverage 33% (reported) and 67% (oracle). Only 21–47% of the most recent week had been reported at each snapshot. |
+| 2026-10-14 | Added a delay-based nowcast of the truncated input (stage 1: point correction using the authors' real-time Weibull reporting-delay estimates; days with less than 50% expected reporting imputed from the rest of the week) and fitted the exponential regression to every input, not only the reported one. | One week ahead, MAPE GMITS vs. exponential regression: reported 59.2% vs. 35.6%, nowcast 27.8% vs. 30.3%, oracle 17.2% vs. 91.4%. Two weeks ahead on nowcast input: 28.0% vs. 82.1%. The nowcast raises the reported share of the latest week from 21–47% to 45–91%. |
