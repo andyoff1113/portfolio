@@ -15,7 +15,7 @@
 
 <title>Bongkrekic Acid Food Poisoning (2024)</title>
 
-<script src="site_libs/header-attrs-2.29/header-attrs.js"></script>
+<script src="site_libs/header-attrs-2.32/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/flatly.min.css" rel="stylesheet" />
@@ -363,9 +363,25 @@ div.tocify {
 
 <div id="functions" class="section level2 unnumbered">
 <h2 class="unnumbered">Functions</h2>
-<div id="mae-mape" class="section level3 unnumbered">
-<h3 class="unnumbered">mae(), mape()</h3>
-<pre class="r"><code>mae &lt;- function(actual, predicted) {
+<p>All pages load the same function file,
+<code>R/gmits_functions.R</code>. The <code>gmits()</code> regression
+was corrected on 2026-10-13: the previous version multiplied the design
+matrix by <span class="math inline">\(\Delta t\)</span> a second time,
+which shrank <span class="math inline">\((\hat a, \hat b)\)</span> by
+<span class="math inline">\(1/\Delta t\)</span> whenever reporting
+intervals were not one day.</p>
+<pre class="r"><code># Shared GMITS functions for all portfolio pages.
+# Single source of truth: pages load this file via a knitr `file =` chunk,
+# and external analyses (e.g. RA/mpox/gmits_england) source() it.
+#
+# 2026-10-13 fix in gmits(): integrating dx1/dt + a * x1 = b over
+# [t_{k-1}, t_k] gives x0_k * dt_k = -a * z_k * dt_k + b * dt_k, so the
+# regression is x0_k = -a * z_k + b. The previous version used
+# B &lt;- cbind(-z * delta_t, delta_t), which scaled (a, b) by 1 / dt and
+# was exact only for dt = 1 (it flipped the sign of a on some irregular
+# grids). See D:/KnowledgeVault/research/grey_system/figures/gmits_dt_bug.png
+
+mae &lt;- function(actual, predicted) {
   mean(abs(actual - predicted), na.rm = TRUE)
 }
 
@@ -375,11 +391,9 @@ mape &lt;- function(actual, predicted) {
     abs((actual[valid] - predicted[valid]) / actual[valid]),
     na.rm = TRUE
   ) * 100
-}</code></pre>
-</div>
-<div id="gmits" class="section level3 unnumbered">
-<h3 class="unnumbered">gmits()</h3>
-<pre class="r"><code># n_ahead: out-of-sample steps using mean(delta_t) as step size.
+}
+
+# n_ahead: out-of-sample steps using mean(delta_t) as step size.
 # Returns $x0_future (and $t_future as numeric time offsets) when n_ahead &gt; 0.
 gmits &lt;- function(count, date, n_ahead = 0) {
   valid &lt;- !is.na(count) &amp; !is.na(date)
@@ -400,7 +414,7 @@ gmits &lt;- function(count, date, n_ahead = 0) {
   x1 &lt;- cumsum(c(x0[1], x0[2:n] * delta_t))
   z  &lt;- 0.5 * (x1[2:n] + x1[1:(n - 1)])
 
-  B &lt;- cbind(-z * delta_t, delta_t)
+  B &lt;- cbind(-z, 1)
   Y &lt;- x0[2:n]
   W &lt;- diag(delta_t)
   p &lt;- solve(t(B) %*% W %*% B) %*% t(B) %*% W %*% Y
@@ -433,11 +447,9 @@ gmits &lt;- function(count, date, n_ahead = 0) {
     result$date_future &lt;- date[n] + round(dt_mean * seq_len(n_ahead))
   }
   result
-}</code></pre>
-</div>
-<div id="gmits_boot" class="section level3 unnumbered">
-<h3 class="unnumbered">gmits_boot()</h3>
-<pre class="r"><code># n_ahead &gt; 0: point/lower/upper each extend to n + n_ahead;
+}
+
+# n_ahead &gt; 0: point/lower/upper each extend to n + n_ahead;
 # last n_ahead entries are the out-of-sample prediction interval.
 gmits_boot &lt;- function(count, date, n_boot = 1000, ci = 0.95, n_ahead = 0) {
   base &lt;- gmits(count, date, n_ahead = n_ahead)
@@ -470,11 +482,9 @@ gmits_boot &lt;- function(count, date, n_boot = 1000, ci = 0.95, n_ahead = 0) {
     a = base$a,
     b = base$b
   )
-}</code></pre>
-</div>
-<div id="exp_reg" class="section level3 unnumbered">
-<h3 class="unnumbered">exp_reg()</h3>
-<pre class="r"><code># Log-linear OLS baseline: log(y) ~ t.
+}
+
+# Log-linear OLS baseline: log(y) ~ t.
 # Only non-zero observations are used (consistent with gmits non-zero day approach).
 # n_ahead: step forward using mean(delta_t) of the input dates.
 exp_reg &lt;- function(count, date, n_ahead = 0) {
@@ -500,9 +510,17 @@ exp_reg &lt;- function(count, date, n_ahead = 0) {
     result$date_future &lt;- dv[n] + round(dt_mean * seq_len(n_ahead))
   }
   result
+}
+
+# Multiply the most recent n_recent observations by scale_factor
+# before passing to gmits(), simulating upward correction of right-truncated data.
+truncation_adjust &lt;- function(count, n_recent = 1, scale_factor = 1.5) {
+  adj &lt;- count
+  idx &lt;- tail(seq_along(count), n_recent)
+  adj[idx] &lt;- count[idx] * scale_factor
+  adj
 }</code></pre>
 <hr />
-</div>
 </div>
 <div id="synthetic-validation" class="section level1">
 <h1>Synthetic Validation</h1>
@@ -595,13 +613,13 @@ Growth (a = -0.4)
 3
 </td>
 <td style="text-align:right;">
--0.115988
+-0.356629
 </td>
 <td style="text-align:right;">
-1.856287
+3.090140
 </td>
 <td style="text-align:right;">
-32.214943
+9.624950
 </td>
 </tr>
 <tr>
@@ -615,13 +633,13 @@ Decay (a = 0.3)
 5
 </td>
 <td style="text-align:right;">
-0.155610
+0.293493
 </td>
 <td style="text-align:right;">
-2.520068
+4.877544
 </td>
 <td style="text-align:right;">
-0.258579
+0.012021
 </td>
 </tr>
 </tbody>
@@ -682,24 +700,38 @@ ggplot(df_synth_plot, aes(t, value, color = type, linetype = Forecast)) +
     x = &quot;Time (days from t₀)&quot;, y = &quot;Period incidence&quot;
   )</code></pre>
 <p><img src="Bongkrekic_Acid_2024_files/figure-html/plot-synth-validate-1.png" width="672" /></p>
-<p><strong>Observed limitation — growth phase forecast bias.</strong>
-The growth scenario (a = −0.4) shows systematic underprediction in the
-forecast steps even under noise-free conditions, while the decay
-scenario (a = 0.3) tracks the true series closely. This is not an
-implementation error; it is an inherent approximation bias in the
-GM(1,1) family.</p>
-<p>The background value <span class="math inline">\(z_{k} =
-\frac{1}{2}(x^{(1)}_{k} + x^{(1)}_{k-1})\)</span> approximates the
-interval mean of <span class="math inline">\(x^{(1)}\)</span> by the
-arithmetic mean of its endpoints. For an exponentially growing <span
+<p><strong>Implementation note (corrected 2026-10-13).</strong> An
+earlier version of this page reported strong underprediction in the
+growth scenario and attributed it entirely to the background-value
+approximation. Most of that gap was an implementation error: the
+regression multiplied the design matrix by <span
+class="math inline">\(\Delta t\)</span> a second time, which shrank
+<span class="math inline">\((\hat a, \hat b)\)</span> by <span
+class="math inline">\(1/\Delta t\)</span> (previously <span
+class="math inline">\(\hat a = -0.116\)</span> for a true <span
+class="math inline">\(a = -0.4\)</span>). With the corrected regression
+the growth scenario recovers <span class="math inline">\(\hat a
+=\)</span> -0.357 and the decay scenario <span
+class="math inline">\(\hat a =\)</span> 0.293.</p>
+<p><strong>Remaining limitation — background-value bias in the growth
+phase.</strong> The residual gap in the growth scenario is the
+approximation bias of the GM(1,1) family. The background value <span
+class="math inline">\(z_{k} = \frac{1}{2}(x^{(1)}_{k} +
+x^{(1)}_{k-1})\)</span> approximates the interval mean of <span
+class="math inline">\(x^{(1)}\)</span> by the arithmetic mean of its
+endpoints. For an exponentially growing <span
 class="math inline">\(x^{(1)}\)</span> (convex curve), the arithmetic
 mean of the endpoints <em>understates</em> the true integral mean,
 causing the model to estimate a slower growth rate than the truth. The
 bias scales with <span class="math inline">\(|a| \times \Delta
-t\)</span>: faster growth or wider reporting intervals amplify it. In
-the decay scenario <span class="math inline">\(x^{(1)}\)</span> is
-concave, the bias acts in the opposite direction, and the absolute
-magnitude is smaller.</p>
+t\)</span>: here <span class="math inline">\(|a| \times \overline{\Delta
+t}
+\approx 1\)</span>, which gives roughly a 10% underestimate of <span
+class="math inline">\(|a|\)</span>; at <span class="math inline">\(|a|
+\times \Delta t \approx 0.1\)</span> it is below 1%. In the decay
+scenario <span class="math inline">\(x^{(1)}\)</span> is concave, the
+bias acts in the opposite direction, and the absolute magnitude is
+smaller.</p>
 <p>This limitation is well-known in the grey system literature (Liu,
 2025; Liu &amp; Deng, 2000) and is the motivation for optimising the
 background coefficient <span class="math inline">\(\alpha\)</span>
@@ -902,10 +934,10 @@ GMITS
 1
 </td>
 <td style="text-align:right;">
-6.50
+4.64
 </td>
 <td style="text-align:right;">
-81.19
+58.05
 </td>
 </tr>
 <tr>
