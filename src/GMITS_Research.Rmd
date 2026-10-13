@@ -8,7 +8,7 @@ date: "2026-05-23 (last updated 2026-10-14)"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 set.seed(2026) # bootstrap intervals reproducible across builds
-for (pkg in c("tidyverse", "kableExtra")) {
+for (pkg in c("tidyverse", "kableExtra", "patchwork")) {
   suppressMessages(
     library(pkg, character.only = TRUE, quietly = TRUE)
   )
@@ -91,7 +91,7 @@ data.frame(
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-```{r plot-synth-validate}
+```{r plot-synth-validate, fig.height = 7}
 n_fit_s <- length(t_irr)
 dt_mean_s <- mean(diff(t_irr))
 t_oos   <- t_irr[n_fit_s] + cumsum(rep(dt_mean_s, n_ahead_s))
@@ -109,7 +109,7 @@ make_synth_df <- function(scenario, true_vals, fitted_vals, future_vals,
   )
 }
 
-df_synth_plot <- bind_rows(
+df_synth <- bind_rows(
   make_synth_df(
     "Growth (a = -0.4)", s1$x0, r1$x0_hat,
     r1$x0_future, tail(synth_true1, n_ahead_s)
@@ -119,16 +119,35 @@ df_synth_plot <- bind_rows(
     r2$x0_future, tail(synth_true2, n_ahead_s)
   )
 ) |>
-  pivot_longer(c(True, Fitted), names_to = "type", values_to = "value")
+  mutate(rel_err = 100 * (Fitted - True) / True)
 
-ggplot(df_synth_plot, aes(t, value, color = type, linetype = Forecast)) +
-  geom_vline(
-    xintercept = t_irr[n_fit_s] + dt_mean_s / 2,
-    linetype = "dotted", color = "grey60"
-  ) +
+# Repeat the last fitted point in the forecast segment so the dashed
+# forecast line starts where the solid fitted line ends
+df_synth_plot <- bind_rows(
+  df_synth |> filter(!Forecast) |> mutate(segment = "in-sample"),
+  df_synth |>
+    filter(Forecast | t == t_irr[n_fit_s]) |>
+    mutate(segment = "forecast")
+) |>
+  pivot_longer(c(True, Fitted), names_to = "type", values_to = "value") |>
+  mutate(segment = factor(segment, levels = c("in-sample", "forecast")))
+
+synth_boundary <- geom_vline(
+  xintercept = t_irr[n_fit_s] + dt_mean_s / 2,
+  linetype = "dotted", color = "grey60"
+)
+synth_x <- expression("Time (days from " * t[0] * ")")
+synth_xscale <- scale_x_continuous(limits = range(t_all_s))
+
+p_values <- ggplot(
+  df_synth_plot,
+  aes(t, value, color = type, linetype = segment,
+      group = interaction(type, segment))
+) +
+  synth_boundary +
   geom_line(linewidth = 0.9) +
   geom_point(
-    data = df_synth_plot |> filter(!Forecast, type == "True"),
+    data = df_synth_plot |> filter(segment == "in-sample", type == "True"),
     size = 2.5
   ) +
   scale_color_manual(
@@ -136,16 +155,41 @@ ggplot(df_synth_plot, aes(t, value, color = type, linetype = Forecast)) +
     name   = NULL
   ) +
   scale_linetype_manual(
-    values = c("FALSE" = "solid", "TRUE" = "dashed"),
-    labels = c("FALSE" = "in-sample", "TRUE" = "forecast"),
-    guide  = guide_legend(title = NULL)
+    values = c("in-sample" = "solid", "forecast" = "dashed"),
+    name   = NULL
   ) +
   facet_wrap(~ Scenario, scales = "free_y", ncol = 2) +
   theme_minimal() +
-  labs(
+  synth_xscale +
+  labs(x = NULL, y = "Period incidence")
+
+p_error <- ggplot(df_synth |> filter(t > 0), aes(t, rel_err)) +
+  synth_boundary +
+  geom_hline(yintercept = 0, color = "grey40") +
+  geom_line(color = "steelblue", linewidth = 0.8) +
+  geom_point(aes(shape = Forecast), color = "steelblue", size = 2.2) +
+  scale_shape_manual(
+    values = c("FALSE" = 16, "TRUE" = 1),
+    labels = c("FALSE" = "in-sample", "TRUE" = "forecast"),
+    name   = NULL
+  ) +
+  # free_y keeps both panels' axes drawn (so they line up with the top
+  # row); the fixed limits keep one common scale
+  facet_wrap(~ Scenario, ncol = 2, scales = "free_y") +
+  scale_y_continuous(limits = range(c(0, df_synth$rel_err))) +
+  synth_xscale +
+  theme_minimal() +
+  labs(x = synth_x, y = "Relative error (%)")
+
+p_values / p_error +
+  plot_layout(heights = c(1.4, 1), guides = "collect") +
+  plot_annotation(
     title    = "GMITS Synthetic Validation — Parameter Recovery",
-    subtitle = "Black = true ODE; Blue = GMITS fit + 3-step forecast; Dotted = forecast boundary",
-    x = "Time (days from t₀)", y = "Period incidence"
+    subtitle = paste0(
+      "Top: black = true ODE, blue = GMITS fit + 3-step forecast. ",
+      "Bottom: (GMITS - true) / true.\n",
+      "Dotted line = forecast boundary; both bottom panels use the same y scale."
+    )
   )
 ```
 

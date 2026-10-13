@@ -523,6 +523,16 @@ truncation_adjust &lt;- function(count, n_recent = 1, scale_factor = 1.5) {
   idx &lt;- tail(seq_along(count), n_recent)
   adj[idx] &lt;- count[idx] * scale_factor
   adj
+}
+
+# Delay-based nowcast of right-truncated daily counts (stage 1: point
+# correction only). p_report is the probability that a case from that day
+# has been reported by the snapshot, i.e. the reporting-delay CDF at the
+# elapsed lag. Days with p_report &gt;= p_min are inflated as obs / p_report;
+# days below p_min (inflation factor &gt; 1 / p_min) are returned as NA so the
+# caller can treat them as missing rather than divide near-zero counts.
+nowcast_inflate &lt;- function(obs, p_report, p_min = 0.5) {
+  ifelse(p_report &gt;= p_min, obs / p_report, NA_real_)
 }</code></pre>
 <hr />
 </div>
@@ -665,7 +675,7 @@ make_synth_df &lt;- function(scenario, true_vals, fitted_vals, future_vals,
   )
 }
 
-df_synth_plot &lt;- bind_rows(
+df_synth &lt;- bind_rows(
   make_synth_df(
     &quot;Growth (a = -0.4)&quot;, s1$x0, r1$x0_hat,
     r1$x0_future, tail(synth_true1, n_ahead_s)
@@ -675,16 +685,35 @@ df_synth_plot &lt;- bind_rows(
     r2$x0_future, tail(synth_true2, n_ahead_s)
   )
 ) |&gt;
-  pivot_longer(c(True, Fitted), names_to = &quot;type&quot;, values_to = &quot;value&quot;)
+  mutate(rel_err = 100 * (Fitted - True) / True)
 
-ggplot(df_synth_plot, aes(t, value, color = type, linetype = Forecast)) +
-  geom_vline(
-    xintercept = t_irr[n_fit_s] + dt_mean_s / 2,
-    linetype = &quot;dotted&quot;, color = &quot;grey60&quot;
-  ) +
+# Repeat the last fitted point in the forecast segment so the dashed
+# forecast line starts where the solid fitted line ends
+df_synth_plot &lt;- bind_rows(
+  df_synth |&gt; filter(!Forecast) |&gt; mutate(segment = &quot;in-sample&quot;),
+  df_synth |&gt;
+    filter(Forecast | t == t_irr[n_fit_s]) |&gt;
+    mutate(segment = &quot;forecast&quot;)
+) |&gt;
+  pivot_longer(c(True, Fitted), names_to = &quot;type&quot;, values_to = &quot;value&quot;) |&gt;
+  mutate(segment = factor(segment, levels = c(&quot;in-sample&quot;, &quot;forecast&quot;)))
+
+synth_boundary &lt;- geom_vline(
+  xintercept = t_irr[n_fit_s] + dt_mean_s / 2,
+  linetype = &quot;dotted&quot;, color = &quot;grey60&quot;
+)
+synth_x &lt;- expression(&quot;Time (days from &quot; * t[0] * &quot;)&quot;)
+synth_xscale &lt;- scale_x_continuous(limits = range(t_all_s))
+
+p_values &lt;- ggplot(
+  df_synth_plot,
+  aes(t, value, color = type, linetype = segment,
+      group = interaction(type, segment))
+) +
+  synth_boundary +
   geom_line(linewidth = 0.9) +
   geom_point(
-    data = df_synth_plot |&gt; filter(!Forecast, type == &quot;True&quot;),
+    data = df_synth_plot |&gt; filter(segment == &quot;in-sample&quot;, type == &quot;True&quot;),
     size = 2.5
   ) +
   scale_color_manual(
@@ -692,16 +721,41 @@ ggplot(df_synth_plot, aes(t, value, color = type, linetype = Forecast)) +
     name   = NULL
   ) +
   scale_linetype_manual(
-    values = c(&quot;FALSE&quot; = &quot;solid&quot;, &quot;TRUE&quot; = &quot;dashed&quot;),
-    labels = c(&quot;FALSE&quot; = &quot;in-sample&quot;, &quot;TRUE&quot; = &quot;forecast&quot;),
-    guide  = guide_legend(title = NULL)
+    values = c(&quot;in-sample&quot; = &quot;solid&quot;, &quot;forecast&quot; = &quot;dashed&quot;),
+    name   = NULL
   ) +
   facet_wrap(~ Scenario, scales = &quot;free_y&quot;, ncol = 2) +
   theme_minimal() +
-  labs(
+  synth_xscale +
+  labs(x = NULL, y = &quot;Period incidence&quot;)
+
+p_error &lt;- ggplot(df_synth |&gt; filter(t &gt; 0), aes(t, rel_err)) +
+  synth_boundary +
+  geom_hline(yintercept = 0, color = &quot;grey40&quot;) +
+  geom_line(color = &quot;steelblue&quot;, linewidth = 0.8) +
+  geom_point(aes(shape = Forecast), color = &quot;steelblue&quot;, size = 2.2) +
+  scale_shape_manual(
+    values = c(&quot;FALSE&quot; = 16, &quot;TRUE&quot; = 1),
+    labels = c(&quot;FALSE&quot; = &quot;in-sample&quot;, &quot;TRUE&quot; = &quot;forecast&quot;),
+    name   = NULL
+  ) +
+  # free_y keeps both panels&#39; axes drawn (so they line up with the top
+  # row); the fixed limits keep one common scale
+  facet_wrap(~ Scenario, ncol = 2, scales = &quot;free_y&quot;) +
+  scale_y_continuous(limits = range(c(0, df_synth$rel_err))) +
+  synth_xscale +
+  theme_minimal() +
+  labs(x = synth_x, y = &quot;Relative error (%)&quot;)
+
+p_values / p_error +
+  plot_layout(heights = c(1.4, 1), guides = &quot;collect&quot;) +
+  plot_annotation(
     title    = &quot;GMITS Synthetic Validation — Parameter Recovery&quot;,
-    subtitle = &quot;Black = true ODE; Blue = GMITS fit + 3-step forecast; Dotted = forecast boundary&quot;,
-    x = &quot;Time (days from t₀)&quot;, y = &quot;Period incidence&quot;
+    subtitle = paste0(
+      &quot;Top: black = true ODE, blue = GMITS fit + 3-step forecast. &quot;,
+      &quot;Bottom: (GMITS - true) / true.\n&quot;,
+      &quot;Dotted line = forecast boundary; both bottom panels use the same y scale.&quot;
+    )
   )</code></pre>
 <p><img src="Bongkrekic_Acid_2024_files/figure-html/plot-synth-validate-1.png" width="672" /></p>
 <p><strong>Implementation note.</strong> An earlier version of this page
